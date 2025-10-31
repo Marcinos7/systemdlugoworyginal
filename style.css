@@ -134,8 +134,8 @@ dialog{
 #paymentConfirmContent{
   font-family:'Courier New',monospace;
   white-space:pre;
-  font-size:1.4em;
-  font-weight:900;
+  font-size:1.3em;
+  font-weight:bold;
   line-height:1.4;
   /* USUNIĘTO: overflow-x:auto; */ 
 }
@@ -161,9 +161,9 @@ dialog{
     font-size:0.8em; /* ZMNIEJSZAMY CZCIONKĘ, aby tekst się zmieścił na 80mm */
     font-weight: normal; /* Można zmniejszyć grubość, aby zajmował mniej miejsca */
     line-height: 1.2; /* Mniejsze odstępy między liniami */
-    width: 95%; /* Upewniamy się, że PRE zajmuje całą szerokość rodzica */
+    width: 100%; /* Upewniamy się, że PRE zajmuje całą szerokość rodzica */
     box-sizing: border-box; /* padding/border wliczane w width */
-    padding: 0 1mm; /* Drobne marginesy boczne, żeby tekst nie dochodził do samej krawędzi */
+    padding: 0 2mm; /* Drobne marginesy boczne, żeby tekst nie dochodził do samej krawędzi */
     page-break-inside:avoid;
   }
   .modal-actions,
