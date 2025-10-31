@@ -234,7 +234,6 @@ async function showReceiptModal(debt) {
     }));
 
     const totalAmount = debt.products.reduce((sum, p) => sum + parseFloat(p.price), 0).toFixed(2);
-    // Sprawdzanie, czy debt.createdAt istnieje i jest obiektem Timestamp
     const createdAtDate = debt.createdAt && typeof debt.createdAt.toDate === 'function'
                           ? new Date(debt.createdAt.toDate()).toLocaleString()
                           : 'N/A';
@@ -242,8 +241,8 @@ async function showReceiptModal(debt) {
 
     let receiptHtml = `
 <pre>
-----------------------------------------
-       PARAGON DŁUGU NR: ${debt.id.substring(0, 8)}
+<div class="receipt-header">PARAGON DŁUGU</div>
+<div style="text-align: center;">NR: ${debt.id.substring(0, 8)}</div>
 ----------------------------------------
 Data Wystawienia: ${createdAtDate}
 
@@ -254,12 +253,13 @@ Dłużnik(cy): ${debtorNames.join(', ')}
 PRODUKTY:
 `;
     debt.products.forEach(p => {
+        // Użyj pogrubionego tekstu dla nazw produktów i cen
         receiptHtml += `${p.name.padEnd(25)} ${p.price.toFixed(2).padStart(8)} zł\n`;
     });
 
     receiptHtml += `
 ----------------------------------------
-SUMA CAŁKOWITA:            ${totalAmount.padStart(8)} zł
+<div class="receipt-total">SUMA CAŁKOWITA:            ${totalAmount.padStart(8)} zł</div>
 TERMIN SPŁATY: ${dueDate}
 ----------------------------------------
 Status: ${debt.isPaid ? 'OPŁACONY' : 'NIEOPŁACONY'}
@@ -270,7 +270,7 @@ Status: ${debt.isPaid ? 'OPŁACONY' : 'NIEOPŁACONY'}
 `;
 
     receiptContent.innerHTML = receiptHtml;
-    receiptModal.classList.remove('hidden'); // POKAŻ MODAL
+    receiptModal.classList.remove('hidden');
 }
 
 // Funkcje modala paragonu

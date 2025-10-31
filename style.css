@@ -110,7 +110,6 @@ button:hover {
     margin-top: 0;
 }
 
-/* KLUCZOWA ZMIANA: Poprawiona i zawsze widoczna klasa hidden */
 .hidden {
     display: none !important;
 }
@@ -149,12 +148,28 @@ button:hover {
     text-align: left;
     white-space: pre-wrap; /* Zachowanie formatowania paragonu */
     font-family: 'Courier New', Courier, monospace; /* Czcionka jak na paragonie */
-    font-size: 0.9em;
-    line-height: 1.4;
+    /* KLUCZOWE ZMIANY DLA POGRUBIONEGO TEKSTU NA PARAGONIE */
+    font-size: 1.1em; /* Trochę większa czcionka */
+    font-weight: bold; /* Pogrubienie */
+    line-height: 1.5; /* Większy odstęp między liniami dla lepszej czytelności */
     border: 1px dashed #ccc;
     padding: 10px;
     margin-bottom: 15px;
 }
+
+/* Możemy dodać specjalną klasę dla nagłówków w paragonie, jeśli chcemy by były jeszcze grubsze */
+.receipt-header {
+    font-size: 1.2em; /* Jeszcze większy rozmiar dla nagłówka */
+    font-weight: bolder; /* Jeszcze większe pogrubienie */
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.receipt-total {
+    font-size: 1.3em;
+    font-weight: bolder;
+}
+
 
 @media print {
     body * {
