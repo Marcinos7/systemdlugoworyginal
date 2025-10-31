@@ -16,7 +16,7 @@ import { db } from './firebase-init.js';
 
 /* ----------  EMAILJS KONFIGURACJA (Z TWOIMI SZLABLONAMI) ---------- */
 const EMAILJS_CONFIG = {
-    SERVICE_ID: 'service_xxxxxxx',              // ← ZMIEŃ na swoje Service ID z EmailJS
+    SERVICE_ID: 'service_i86iyj3',              // ← ZMIEŃ na swoje Service ID z EmailJS
     TEMPLATE_NEW_DEBT: 'debt_created_template',     // ← Twój szablon nowego długu
     TEMPLATE_PAID_DEBT: 'debt_paid_template'        // ← Twój szablon opłaconego długu
 };
