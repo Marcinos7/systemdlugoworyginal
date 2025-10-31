@@ -274,6 +274,7 @@ closeReceiptModalButton.addEventListener('click', () => {
 });
 
 
+
 // ---- Inicjalizacja ----
 // Załaduj osoby i długi przy starcie aplikacji
 document.addEventListener('DOMContentLoaded', () => {
