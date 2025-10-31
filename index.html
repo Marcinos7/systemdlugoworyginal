@@ -7,7 +7,7 @@
 
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Firebase v9 CDN -->
+  <!--  Firebase v9 CDN  (modułowo) -->
   <script type="module" src="firebase-init.js"></script>
 </head>
 
@@ -61,8 +61,7 @@
     </section>
   </div>
 
-  <!-- ==== MODALE ==== -->
-  <!-- Modal paragonu długu -->
+  <!-- ==== MODAL PARAGONU ==== -->
   <dialog id="receiptModal">
     <pre id="receiptContent"></pre>
     <div class="modal-actions">
@@ -71,26 +70,23 @@
     </div>
   </dialog>
 
-  <!-- Modal wyboru metody płatności -->
-  <dialog id="paymentMethodModal">
+  <!-- ==== MODAL WYBORU METODY PŁATNOŚCI ==== -->
+  <dialog id="paymentModal">
     <h3>Wybierz metodę płatności</h3>
-    <div class="payment-method-option">
-      <input type="radio" id="paymentCash" name="paymentMethod" value="gotówka" required checked>
-      <label for="paymentCash">Gotówka</label>
+    <div class="payment-options">
+      <button id="paymentCash" class="payment-btn">💵 Gotówka</button>
+      <button id="paymentTransfer" class="payment-btn">💳 Przelew</button>
     </div>
-    <div class="payment-method-option">
-      <input type="radio" id="paymentTransfer" name="paymentMethod" value="przelew" required>
-      <label for="paymentTransfer">Przelew</label>
-    </div>
-    <div class="modal-actions">
-      <button id="confirmPaymentMethodBtn">Zatwierdź</button>
-      <button id="cancelPaymentMethodBtn">Anuluj</button>
-    </div>
+    <button id="cancelPaymentBtn" class="cancel-btn">Anuluj</button>
   </dialog>
 
-  <!-- Modal potwierdzenia opłaty (do druku) -->
-  <dialog id="paymentConfirmationModal">
-    <pre id="paymentConfirmationContent"></pre>
+  <!-- ==== MODAL POTWIERDZENIA OPŁATY ==== -->
+  <dialog id="paymentConfirmModal">
+    <pre id="paymentConfirmContent"></pre>
+    <div class="modal-actions">
+      <button id="printConfirmBtn">Drukuj potwierdzenie</button>
+      <button id="closeConfirmBtn">Zamknij</button>
+    </div>
   </dialog>
 
   <!-- Główny skrypt -->
