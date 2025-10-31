@@ -7,6 +7,14 @@
 
   <link rel="stylesheet" href="style.css">
 
+  <!-- EmailJS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script>
+    (function(){
+      emailjs.init("Qm0kIiI5sPeh_kgn9"); // Twój Public Key z EmailJS
+    })();
+  </script>
+
   <!-- Firebase SDK (modułowy) -->
   <script type="module" src="firebase-init.js"></script>
 </head>

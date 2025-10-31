@@ -14,6 +14,13 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 import { db } from './firebase-init.js';
 
+/* ----------  EMAILJS KONFIGURACJA ---------- */
+const EMAILJS_CONFIG = {
+    SERVICE_ID: 'service_xxxxxxx',              // ← ZMIEŃ na swoje ID serwisu z EmailJS (np. service_gmail)
+    TEMPLATE_NEW_DEBT: 'template_new_debt',     // ← ZMIEŃ na ID szablonu dla nowego długu
+    TEMPLATE_PAID_DEBT: 'template_paid_debt'    // ← ZMIEŃ na ID szablonu dla opłaconego długu
+};
+
 /* ----------  Pomocnicza funkcja selektora ---------- */
 const $ = (sel) => document.querySelector(sel);
 
@@ -26,22 +33,20 @@ let createBtn, form, cancelBtn, saveBtn, addProdBtn, productsC,
     paymentConfirmModal, paymentConfirmContent, printConfirmBtn, closeConfirmBtn;
 
 /* ----------  Stan płatności ---------- */
-let pendingPaymentDebtId = null;   // ID długu, który chcemy opłacić
-let pendingPaymentDebtData = null; // pełne dane długu (do wydruku potwierdzenia)
+let pendingPaymentDebtId = null;
+let pendingPaymentDebtData = null;
 
 /* ----------  Funkcje UI ---------- */
 const hide = (el) => el && el.classList.add('hidden');
 const show = (el) => el && el.classList.remove('hidden');
 
-/* Resetuje formularz tworzenia długu */
 function resetForm() {
   form.reset();
   debtorSel.querySelectorAll('option').forEach(o => o.selected = false);
   productsC.innerHTML = '';
-  addProductField();               // jedno puste pole produktu
+  addProductField();
 }
 
-/* Dodaje pole produktu */
 function addProductField(name = '', price = '') {
   const wrapper = document.createElement('div');
   wrapper.className = 'product-item';
@@ -53,6 +58,41 @@ function addProductField(name = '', price = '') {
 }
 
 /* --------------------------------------------------------------
+   FUNKCJA WYSYŁANIA EMAILA (EmailJS)
+   -------------------------------------------------------------- */
+async function sendNotificationEmail(templateId, debtData, method = null) {
+    const total = debtData.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
+    
+    // Pobierz maile wszystkich dłużników
+    for (const pid of debtData.debtorIds) {
+        const pDoc = await getDoc(doc(db, 'people', pid));
+        if (pDoc.exists() && pDoc.data().email) {
+            
+            const emailParams = {
+                to_email: pDoc.data().email,           // Email dłużnika
+                to_name: pDoc.data().name,             // Imię dłużnika
+                debt_title: debtData.title,            // Tytuł długu
+                total_amount: total,                   // Suma
+                due_date: new Date(debtData.dueDate).toLocaleDateString('pl-PL'),
+                payment_method: method || 'N/A',       // Metoda płatności (lub N/A dla nowego długu)
+                payment_date: method ? new Date().toLocaleDateString('pl-PL') : 'N/A'
+            };
+
+            try {
+                // emailjs jest globalny (załadowany w HTML)
+                await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, emailParams);
+                console.log(`✅ Email wysłany do ${pDoc.data().name} (${pDoc.data().email})`);
+            } catch (error) {
+                console.error(`❌ Błąd wysyłki do ${pDoc.data().name}:`, error);
+                alert(`Nie udało się wysłać emaila do ${pDoc.data().name}. Sprawdź konfigurację EmailJS.`);
+            }
+        } else {
+            console.warn(`⚠️ Brak emaila dla dłużnika o ID: ${pid}`);
+        }
+    }
+}
+
+/* --------------------------------------------------------------
    ŁADOWANIE DANYCH Z FIRESTORE
    -------------------------------------------------------------- */
 async function loadPeople() {
@@ -61,9 +101,11 @@ async function loadPeople() {
 
   const snap = await getDocs(query(collection(db, 'people'), orderBy('name')));
   snap.forEach(docu => {
-    const { name } = docu.data();
+    const data = docu.data();
+    const name = data.name;
+    const email = data.email || 'Brak emaila';
 
-    peopleUL.insertAdjacentHTML('beforeend', `<li>${name}</li>`);
+    peopleUL.insertAdjacentHTML('beforeend', `<li>${name} <small>(${email})</small></li>`);
     debtorSel.insertAdjacentHTML(
       'beforeend',
       `<option value="${docu.id}">${name}</option>`
@@ -71,7 +113,6 @@ async function loadPeople() {
   });
 }
 
-/* Ładuje wszystkie długi i wyświetla je */
 async function loadDebts() {
   activeDiv.innerHTML = '';
   archDiv.innerHTML = '';
@@ -83,9 +124,7 @@ async function loadDebts() {
   }
 }
 
-/* Renderuje pojedynczy dług (aktywne lub archiwum) */
 async function renderDebt(debt) {
-  // Pobranie nazw dłużników
   const debtorNames = [];
   for (const pid of debt.debtorIds) {
     const pDoc = await getDoc(doc(db, 'people', pid));
@@ -98,7 +137,6 @@ async function renderDebt(debt) {
   const box = document.createElement('div');
   box.className = 'debt-item' + (debt.isPaid ? ' archived' : '');
 
-  // Informacja o metodzie płatności (jeśli już opłacono)
   let paymentInfo = '';
   if (debt.isPaid && debt.paymentMethod) {
     const payDate = debt.paymentDate?.toDate?.()
@@ -120,13 +158,11 @@ async function renderDebt(debt) {
 
   const btns = box.querySelector('.btns');
 
-  // Przycisk „Paragon”
   const viewBtn = document.createElement('button');
   viewBtn.textContent = 'Paragon';
   viewBtn.addEventListener('click', () => openReceipt(debt, debtorNames));
   btns.appendChild(viewBtn);
 
-  // Przycisk „Opłacony” (tylko dla nieopłaconych)
   if (!debt.isPaid) {
     const payBtn = document.createElement('button');
     payBtn.textContent = 'Opłacony';
@@ -134,7 +170,6 @@ async function renderDebt(debt) {
     btns.appendChild(payBtn);
   }
 
-  // Dodaj do odpowiedniej sekcji
   (debt.isPaid ? archDiv : activeDiv).appendChild(box);
 }
 
@@ -147,20 +182,26 @@ function initiatePayment(debtId, debtData, debtorNames) {
   paymentModal.showModal();
 }
 
-/* Zapisuje wybraną metodę płatności i generuje potwierdzenie */
 async function processPayment(method) {
   if (!pendingPaymentDebtId) return;
 
   const now = new Date();
 
-  // Aktualizacja dokumentu w Firestore
+  // 1. Aktualizacja w Firestore
   await updateDoc(doc(db, 'debts', pendingPaymentDebtId), {
     isPaid: true,
     paymentMethod: method === 'cash' ? 'Gotówka' : 'Przelew',
     paymentDate: serverTimestamp()
   });
 
-  // Generowanie potwierdzenia
+  // 2. Wysyłka emaila o opłaceniu
+  await sendNotificationEmail(
+    EMAILJS_CONFIG.TEMPLATE_PAID_DEBT,
+    pendingPaymentDebtData,
+    method === 'cash' ? 'Gotówka' : 'Przelew'
+  );
+
+  // 3. Generowanie potwierdzenia
   generatePaymentConfirmation(
     pendingPaymentDebtId,
     pendingPaymentDebtData,
@@ -169,10 +210,9 @@ async function processPayment(method) {
   );
 
   paymentModal.close();
-  loadDebts(); // odśwież listę
+  loadDebts();
 }
 
-/* Tworzy tekst potwierdzenia i otwiera modal */
 function generatePaymentConfirmation(id, debt, method, date) {
   const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
   const methodTxt = method === 'cash' ? 'GOTÓWKA' : 'PRZELEW';
@@ -203,7 +243,6 @@ STATUS: ✓ OPŁACONY
   paymentConfirmContent.textContent = txt;
   paymentConfirmModal.showModal();
 
-  // Automatyczny wydruk (po krótkim opóźnieniu, żeby modal zdążył się otworzyć)
   setTimeout(() => window.print(), 500);
 }
 
@@ -269,7 +308,6 @@ długu podanymi metodami płatności:
    INICJALIZACJA – wszystko po załadowaniu DOM
    -------------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', async () => {
-  /* ---- pobranie elementów ---- */
   createBtn               = $('#createDebtBtn');
   form                    = $('#debtForm');
   cancelBtn               = $('#cancelDebtBtn');
@@ -291,14 +329,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   paymentCash             = $('#paymentCash');
   paymentTransfer         = $('#paymentTransfer');
   cancelPaymentBtn        = $('#cancelPaymentBtn');
-  paymentConfirmModal    = $('#paymentConfirmModal');
+  paymentConfirmModal     = $('#paymentConfirmModal');
   paymentConfirmContent   = $('#paymentConfirmContent');
   printConfirmBtn         = $('#printConfirmBtn');
   closeConfirmBtn         = $('#closeConfirmBtn');
 
-  /* ---- obsługa zdarzeń ---- */
-
-  // Dodawanie/usuwanie pól produktów
   productsC.addEventListener('click', (e) => {
     if (e.target.classList.contains('remove')) {
       e.target.parentElement.remove();
@@ -308,7 +343,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   addProdBtn.addEventListener('click', () => addProductField());
 
-  // Formularz nowego długu
   createBtn.addEventListener('click', () => {
     show(form);
     hide(createBtn);
@@ -320,7 +354,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     show(createBtn);
   });
 
-  // Zapis nowego długu
+  // Zapis nowego długu + wysyłka emaila
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -337,14 +371,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    await addDoc(collection(db, 'debts'), {
+    const newDebt = {
       title,
       debtorIds,
       products,
       dueDate,
-      isPaid: false,
+      isPaid: false
+    };
+
+    // Zapis do Firestore
+    await addDoc(collection(db, 'debts'), {
+      ...newDebt,
       createdAt: serverTimestamp()
     });
+
+    // Wysyłka emaila o nowym długu
+    await sendNotificationEmail(
+      EMAILJS_CONFIG.TEMPLATE_NEW_DEBT,
+      newDebt
+    );
 
     hide(form);
     show(createBtn);
@@ -352,11 +397,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadDebts();
   });
 
-  // Paragon – drukowanie
   printBtn.addEventListener('click', () => window.print());
   closeBtn.addEventListener('click', () => receiptModal.close());
 
-  // Wybór metody płatności
   paymentCash.addEventListener('click', () => processPayment('cash'));
   paymentTransfer.addEventListener('click', () => processPayment('transfer'));
   cancelPaymentBtn.addEventListener('click', () => {
@@ -365,14 +408,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     pendingPaymentDebtData = null;
   });
 
-  // Potwierdzenie opłaty – drukowanie
   printConfirmBtn.addEventListener('click', () => window.print());
   closeConfirmBtn.addEventListener('click', () => paymentConfirmModal.close());
 
-  /* ---- wczytanie danych ---- */
   await loadPeople();
   await loadDebts();
-
-  // Na starcie formularz jest ukryty, ale dodajemy jedno puste pole produktu
   addProductField();
 });
