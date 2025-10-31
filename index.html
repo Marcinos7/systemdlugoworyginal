@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>System Zarządzania Długami</title>
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 
-  <!--  Firebase v9 CDN  (modułowo) -->
+  <!-- Firebase SDK (modułowy) -->
   <script type="module" src="firebase-init.js"></script>
 </head>
 
@@ -15,20 +15,20 @@
   <div class="container">
     <h1>System Zarządzania Długami</h1>
 
-    <!-- ==== LISTA OSÓB ==== -->
+    <!-- Lista osób -->
     <section class="section">
       <h2>Osoby</h2>
       <ul id="peopleList"></ul>
     </section>
 
-    <!-- ==== NOWY DŁUG ==== -->
+    <!-- Tworzenie nowego długu -->
     <section class="section">
       <h2>Utwórz nowy dług</h2>
       <button id="createDebtBtn">Utwórz dług</button>
 
       <form id="debtForm" class="hidden">
         <label for="debtTitle">Tytuł długu</label>
-        <input id="debtTitle" type="text" placeholder="Np. Zakupy spożywcze" required />
+        <input id="debtTitle" type="text" placeholder="Np. Zakupy spożywcze" required>
 
         <label for="debtorSelect">Wybierz dłużnika(-ów)</label>
         <select id="debtorSelect" multiple required></select>
@@ -39,7 +39,7 @@
         <button type="button" id="addProductBtn">Dodaj produkt</button>
 
         <label for="dueDate">Termin spłaty</label>
-        <input id="dueDate" type="date" required />
+        <input id="dueDate" type="date" required>
 
         <div class="form-actions">
           <button type="submit" id="saveDebtBtn">Zapisz dług</button>
@@ -48,20 +48,20 @@
       </form>
     </section>
 
-    <!-- ==== AKTYWNE ==== -->
+    <!-- Aktywne długi -->
     <section class="section">
       <h2>Aktywne długi</h2>
       <div id="activeDebtsList"></div>
     </section>
 
-    <!-- ==== ARCHIWUM ==== -->
+    <!-- Archiwum długów -->
     <section class="section">
       <h2>Archiwum długów</h2>
       <div id="archivedDebtsList"></div>
     </section>
   </div>
 
-  <!-- ==== MODAL PARAGONU ==== -->
+  <!-- Modal – paragon długu -->
   <dialog id="receiptModal">
     <pre id="receiptContent"></pre>
     <div class="modal-actions">
@@ -70,7 +70,7 @@
     </div>
   </dialog>
 
-  <!-- ==== MODAL WYBORU METODY PŁATNOŚCI ==== -->
+  <!-- Modal – wybór metody płatności -->
   <dialog id="paymentModal">
     <h3>Wybierz metodę płatności</h3>
     <div class="payment-options">
@@ -80,7 +80,7 @@
     <button id="cancelPaymentBtn" class="cancel-btn">Anuluj</button>
   </dialog>
 
-  <!-- ==== MODAL POTWIERDZENIA OPŁATY ==== -->
+  <!-- Modal – potwierdzenie opłaty -->
   <dialog id="paymentConfirmModal">
     <pre id="paymentConfirmContent"></pre>
     <div class="modal-actions">
@@ -89,7 +89,7 @@
     </div>
   </dialog>
 
-  <!-- Główny skrypt -->
+  <!-- Główny skrypt aplikacji -->
   <script type="module" src="script.js"></script>
 </body>
 </html>

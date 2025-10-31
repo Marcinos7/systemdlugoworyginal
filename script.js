@@ -1,73 +1,64 @@
+/* --------------------------------------------------------------
+   Skrypt aplikacji – wszystko uruchamiane po DOMContentLoaded
+   -------------------------------------------------------------- */
 import {
-  addDoc, collection, doc, getDoc, getDocs,
-  orderBy, query, serverTimestamp, updateDoc
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  updateDoc
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 import { db } from './firebase-init.js';
 
-/* ----------  ZMIENNE DOM ---------- */
+/* ----------  Pomocnicza funkcja selektora ---------- */
 const $ = (sel) => document.querySelector(sel);
-const createBtn  = $('#createDebtBtn');
-const form       = $('#debtForm');
-const cancelBtn  = $('#cancelDebtBtn');
-const saveBtn    = $('#saveDebtBtn');
-const addProdBtn = $('#addProductBtn');
-const productsC  = $('#productsContainer');
-const titleInp   = $('#debtTitle');
-const debtorSel  = $('#debtorSelect');
-const dueDateInp = $('#dueDate');
-const peopleUL   = $('#peopleList');
-const activeDiv  = $('#activeDebtsList');
-const archDiv    = $('#archivedDebtsList');
-const modal      = $('#receiptModal');
-const receiptPre = $('#receiptContent');
-const printBtn   = $('#printReceiptBtn');
-const closeBtn   = $('#closeModalBtn');
 
-// Nowe elementy dla płatności
-const paymentModal = $('#paymentModal');
-const paymentCash = $('#paymentCash');
-const paymentTransfer = $('#paymentTransfer');
-const cancelPaymentBtn = $('#cancelPaymentBtn');
-const paymentConfirmModal = $('#paymentConfirmModal');
-const paymentConfirmContent = $('#paymentConfirmContent');
-const printConfirmBtn = $('#printConfirmBtn');
-const closeConfirmBtn = $('#closeConfirmBtn');
+/* ----------  Zmienne (zostaną zainicjalizowane po DOMReady) ---------- */
+let createBtn, form, cancelBtn, saveBtn, addProdBtn, productsC,
+    titleInp, debtorSel, dueDateInp,
+    peopleUL, activeDiv, archDiv,
+    receiptModal, receiptPre, printBtn, closeBtn,
+    paymentModal, paymentCash, paymentTransfer, cancelPaymentBtn,
+    paymentConfirmModal, paymentConfirmContent, printConfirmBtn, closeConfirmBtn;
 
-// Przechowujemy ID długu do opłacenia
-let pendingPaymentDebtId = null;
-let pendingPaymentDebtData = null;
+/* ----------  Stan płatności ---------- */
+let pendingPaymentDebtId = null;   // ID długu, który chcemy opłacić
+let pendingPaymentDebtData = null; // pełne dane długu (do wydruku potwierdzenia)
 
-/* ----------  UI helpers ---------- */
-const hide = (el) => el.classList.add('hidden');
-const show = (el) => el.classList.remove('hidden');
+/* ----------  Funkcje UI ---------- */
+const hide = (el) => el && el.classList.add('hidden');
+const show = (el) => el && el.classList.remove('hidden');
 
-const resetForm = () => {
+/* Resetuje formularz tworzenia długu */
+function resetForm() {
   form.reset();
   debtorSel.querySelectorAll('option').forEach(o => o.selected = false);
   productsC.innerHTML = '';
-  addProductField();
-};
+  addProductField();               // jedno puste pole produktu
+}
 
-const addProductField = (name = '', price = '') => {
-  const wrap = document.createElement('div');
-  wrap.className = 'product-item';
-  wrap.innerHTML = `
-    <input type="text"  placeholder="Nazwa" value="${name}"  class="p-name" required>
-    <input type="number" placeholder="Cena"  value="${price}" class="p-price" step="0.01" min="0" required>
+/* Dodaje pole produktu */
+function addProductField(name = '', price = '') {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'product-item';
+  wrapper.innerHTML = `
+    <input type="text"  class="p-name"  placeholder="Nazwa"  value="${name}" required>
+    <input type="number" class="p-price" placeholder="Cena" value="${price}" step="0.01" min="0" required>
     <button type="button" class="remove">✕</button>`;
-  productsC.append(wrap);
-};
+  productsC.appendChild(wrapper);
+}
 
-productsC.addEventListener('click', (e) => {
-  if (e.target.classList.contains('remove')) {
-    e.target.parentElement.remove();
-    if (!productsC.children.length) addProductField();
-  }
-});
+/* --------------------------------------------------------------
+   ŁADOWANIE DANYCH Z FIRESTORE
+   -------------------------------------------------------------- */
+async function loadPeople() {
+  peopleUL.innerHTML = '';
+  debtorSel.innerHTML = '';
 
-/* ----------  Ładowanie danych ---------- */
-const loadPeople = async () => {
-  peopleUL.innerHTML = debtorSel.innerHTML = '';
   const snap = await getDocs(query(collection(db, 'people'), orderBy('name')));
   snap.forEach(docu => {
     const { name } = docu.data();
@@ -78,24 +69,27 @@ const loadPeople = async () => {
       `<option value="${docu.id}">${name}</option>`
     );
   });
-};
+}
 
-const loadDebts = async () => {
-  activeDiv.innerHTML = archDiv.innerHTML = '';
+/* Ładuje wszystkie długi i wyświetla je */
+async function loadDebts() {
+  activeDiv.innerHTML = '';
+  archDiv.innerHTML = '';
+
   const snap = await getDocs(query(collection(db, 'debts'), orderBy('createdAt', 'desc')));
-
   for (const docu of snap.docs) {
     const debt = { id: docu.id, ...docu.data() };
     await renderDebt(debt);
   }
-};
+}
 
-const renderDebt = async (debt) => {
-  /* pobieramy imiona osób */
-  const names = [];
+/* Renderuje pojedynczy dług (aktywne lub archiwum) */
+async function renderDebt(debt) {
+  // Pobranie nazw dłużników
+  const debtorNames = [];
   for (const pid of debt.debtorIds) {
-    const p = await getDoc(doc(db, 'people', pid));
-    names.push(p.exists() ? p.data().name : 'Nieznany');
+    const pDoc = await getDoc(doc(db, 'people', pid));
+    debtorNames.push(pDoc.exists() ? pDoc.data().name : 'Nieznany');
   }
 
   const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
@@ -103,156 +97,123 @@ const renderDebt = async (debt) => {
 
   const box = document.createElement('div');
   box.className = 'debt-item' + (debt.isPaid ? ' archived' : '');
-  
-  let statusInfo = '';
+
+  // Informacja o metodzie płatności (jeśli już opłacono)
+  let paymentInfo = '';
   if (debt.isPaid && debt.paymentMethod) {
-    const paymentDate = debt.paymentDate?.toDate?.() 
-      ? debt.paymentDate.toDate().toLocaleDateString('pl-PL') 
-      : 'Nieznana data';
-    statusInfo = `<br><small>Opłacono: ${paymentDate} (${debt.paymentMethod})</small>`;
+    const payDate = debt.paymentDate?.toDate?.()
+      ? debt.paymentDate.toDate().toLocaleDateString('pl-PL')
+      : '—';
+    paymentInfo = `<br><small>Opłacono: ${payDate} (${debt.paymentMethod})</small>`;
   }
-  
+
   box.innerHTML = `
     <div>
       <strong>${debt.title}</strong><br>
-      Dłużnik(cy): ${names.join(', ')}<br>
+      Dłużnik(cy): ${debtorNames.join(', ')}<br>
       Suma: ${total} zł<br>
       Termin spłaty: ${due}
-      ${statusInfo}
+      ${paymentInfo}
     </div>
-    <div class="btns"></div>`;
+    <div class="btns"></div>
+  `;
 
   const btns = box.querySelector('.btns');
 
-  const view = document.createElement('button');
-  view.textContent = 'Paragon';
-  view.onclick = () => openReceipt(debt, names);
-  btns.append(view);
+  // Przycisk „Paragon”
+  const viewBtn = document.createElement('button');
+  viewBtn.textContent = 'Paragon';
+  viewBtn.addEventListener('click', () => openReceipt(debt, debtorNames));
+  btns.appendChild(viewBtn);
 
+  // Przycisk „Opłacony” (tylko dla nieopłaconych)
   if (!debt.isPaid) {
-    const pay = document.createElement('button');
-    pay.textContent = 'Opłacony';
-    pay.onclick = () => initiatePayment(debt.id, debt, names);
-    btns.append(pay);
+    const payBtn = document.createElement('button');
+    payBtn.textContent = 'Opłacony';
+    payBtn.addEventListener('click', () => initiatePayment(debt.id, debt, debtorNames));
+    btns.appendChild(payBtn);
   }
 
-  (debt.isPaid ? archDiv : activeDiv).append(box);
-};
+  // Dodaj do odpowiedniej sekcji
+  (debt.isPaid ? archDiv : activeDiv).appendChild(box);
+}
 
-/* ----------  PAYMENT FLOW ---------- */
-const initiatePayment = (debtId, debtData, names) => {
-  pendingPaymentDebtId = debtId;
-  pendingPaymentDebtData = { ...debtData, debtorNames: names };
+/* --------------------------------------------------------------
+   OBSŁUGA PŁATNOŚCI
+   -------------------------------------------------------------- */
+function initiatePayment(debtId, debtData, debtorNames) {
+  pendingPaymentDebtId   = debtId;
+  pendingPaymentDebtData = { ...debtData, debtorNames };
   paymentModal.showModal();
-};
+}
 
-const processPayment = async (paymentMethod) => {
+/* Zapisuje wybraną metodę płatności i generuje potwierdzenie */
+async function processPayment(method) {
   if (!pendingPaymentDebtId) return;
-  
-  const paymentDate = new Date();
-  
-  // Aktualizuj dług w bazie
-  await updateDoc(doc(db, 'debts', pendingPaymentDebtId), { 
+
+  const now = new Date();
+
+  // Aktualizacja dokumentu w Firestore
+  await updateDoc(doc(db, 'debts', pendingPaymentDebtId), {
     isPaid: true,
-    paymentMethod: paymentMethod,
+    paymentMethod: method === 'cash' ? 'Gotówka' : 'Przelew',
     paymentDate: serverTimestamp()
   });
-  
-  // Generuj i wyświetl potwierdzenie
-  generatePaymentConfirmation(
-    pendingPaymentDebtId, 
-    pendingPaymentDebtData, 
-    paymentMethod, 
-    paymentDate
-  );
-  
-  paymentModal.close();
-  loadDebts();
-};
 
-const generatePaymentConfirmation = (debtId, debtData, paymentMethod, paymentDate) => {
-  const total = debtData.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
-  const methodText = paymentMethod === 'cash' ? 'GOTÓWKA' : 'PRZELEW';
-  
-  let confirmText = `
+  // Generowanie potwierdzenia
+  generatePaymentConfirmation(
+    pendingPaymentDebtId,
+    pendingPaymentDebtData,
+    method,
+    now
+  );
+
+  paymentModal.close();
+  loadDebts(); // odśwież listę
+}
+
+/* Tworzy tekst potwierdzenia i otwiera modal */
+function generatePaymentConfirmation(id, debt, method, date) {
+  const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
+  const methodTxt = method === 'cash' ? 'GOTÓWKA' : 'PRZELEW';
+
+  const txt = `
 ========================================
         POTWIERDZENIE OPŁATY
 ========================================
 
-NUMER DŁUGU: ${debtId.slice(0, 8).toUpperCase()}
+NUMER DŁUGU: ${id.slice(0, 8).toUpperCase()}
 
-DATA OPŁACENIA: ${paymentDate.toLocaleDateString('pl-PL')}
-GODZINA: ${paymentDate.toLocaleTimeString('pl-PL')}
+DATA OPŁACENIA: ${date.toLocaleDateString('pl-PL')}
+GODZINA:        ${date.toLocaleTimeString('pl-PL')}
 
 ----------------------------------------
-TYTUŁ DŁUGU: ${debtData.title}
-DŁUŻNIK(CY): ${debtData.debtorNames.join(', ')}
+TYTUŁ DŁUGU:    ${debt.title}
+DŁUŻNIK(CY):   ${debt.debtorNames.join(', ')}
 
-METODA PŁATNOŚCI: ${methodText}
-
-OPŁACONA KWOTA: ${total} ZŁ
+METODA PŁATNOŚCI: ${methodTxt}
+OPŁACONA KWOTA:  ${total} ZŁ
 
 ----------------------------------------
 STATUS: ✓ OPŁACONY
-
 ========================================
-      Dziękujemy za dokonanie opłaty
+   Dziękujemy za dokonanie płatności
 ========================================`;
 
-  paymentConfirmContent.textContent = confirmText;
+  paymentConfirmContent.textContent = txt;
   paymentConfirmModal.showModal();
-  
-  // Automatyczny wydruk po 500ms
-  setTimeout(() => {
-    window.print();
-  }, 500);
-};
 
-// Event listeners dla przycisków płatności
-paymentCash.onclick = () => processPayment('cash');
-paymentTransfer.onclick = () => processPayment('transfer');
-cancelPaymentBtn.onclick = () => {
-  paymentModal.close();
-  pendingPaymentDebtId = null;
-  pendingPaymentDebtData = null;
-};
+  // Automatyczny wydruk (po krótkim opóźnieniu, żeby modal zdążył się otworzyć)
+  setTimeout(() => window.print(), 500);
+}
 
-printConfirmBtn.onclick = () => window.print();
-closeConfirmBtn.onclick = () => paymentConfirmModal.close();
-
-/* ----------  CRUD ---------- */
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const title    = titleInp.value.trim();
-  const debtorIds= [...debtorSel.selectedOptions].map(o => o.value);
-  const dueDate  = dueDateInp.value;
-  const products = [...productsC.children].map(c => ({
-    name:  c.querySelector('.p-name').value.trim(),
-    price: Number(c.querySelector('.p-price').value)
-  })).filter(p => p.name && !isNaN(p.price));
-
-  if (!title || !debtorIds.length || !dueDate || !products.length) {
-    alert('Uzupełnij wszystkie wymagane pola.');
-    return;
-  }
-
-  await addDoc(collection(db, 'debts'), {
-    title, debtorIds, products, dueDate,
-    isPaid: false,
-    createdAt: serverTimestamp()
-  });
-
-  hide(form); show(createBtn);
-  resetForm();
-  loadDebts();
-});
-
-/* ----------  Modal Paragonu ---------- */
-const openReceipt = (debt, names=[]) => {
-  const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
-  const issued = debt.createdAt?.toDate?.() ? debt.createdAt.toDate() : new Date();
-  const due    = new Date(debt.dueDate);
+/* --------------------------------------------------------------
+   MODAL – PARAGON DŁUGU
+   -------------------------------------------------------------- */
+function openReceipt(debt, debtorNames = []) {
+  const total   = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
+  const created = debt.createdAt?.toDate?.() ? debt.createdAt.toDate() : new Date();
+  const due     = new Date(debt.dueDate);
 
   let txt = `
 ========================================
@@ -260,24 +221,23 @@ const openReceipt = (debt, names=[]) => {
         NR: ${debt.id.slice(0,8).toUpperCase()}
 ========================================
 
-Data wystawienia: 
-${issued.toLocaleDateString('pl-PL')} ${issued.toLocaleTimeString('pl-PL')}
+Data wystawienia: ${created.toLocaleDateString('pl-PL')} ${created.toLocaleTimeString('pl-PL')}
 
 Tytuł: ${debt.title}
 
-Dłużnik(cy): 
-${names.join(', ')}
+Dłużnik(cy):
+${debtorNames.join(', ')}
 
-========================================
-              PRODUKTY
-========================================
+----------------------------------------
+               PRODUKTY
+----------------------------------------
 `;
-  
+
   debt.products.forEach(p => {
     const nameLines = p.name.match(/.{1,20}/g) || [p.name];
-    nameLines.forEach((line, idx) => {
-      if (idx === 0) {
-        txt += `${line.padEnd(20)} ${p.price.toFixed(2).padStart(10)} zł\n`;
+    nameLines.forEach((line, i) => {
+      if (i === 0) {
+        txt += `${line.padEnd(20)} ${Number(p.price).toFixed(2).padStart(8)} zł\n`;
       } else {
         txt += `  ${line}\n`;
       }
@@ -285,40 +245,134 @@ ${names.join(', ')}
     txt += '\n';
   });
 
-  txt += `========================================
-
-SUMA DO ZAPŁATY:     ${total.padStart(10)} zł
+  txt += `----------------------------------------
+SUMA DO ZAPŁATY: ${total.padStart(10)} zł
 
 Termin spłaty: ${due.toLocaleDateString('pl-PL')}
 
-========================================
+----------------------------------------
 Status: ${debt.isPaid ? '✓ OPŁACONY' : '⚠ NIEOPŁACONY'}
-========================================
 
 Dług można opłacić w ciągu 14 dni
 od wystawienia niniejszego paragonu
 długu podanymi metodami płatności:
 • PRZELEW
 • GOTÓWKA
-
-========================================`;
+----------------------------------------
+`;
 
   receiptPre.textContent = txt;
-  modal.showModal();
-};
+  receiptModal.showModal();
+}
 
-printBtn.onclick = () => window.print();
-closeBtn.onclick = () => modal.close();
-
-/* ----------  Przyciski formularza ---------- */
-createBtn.onclick = () => { show(form); hide(createBtn); resetForm(); };
-cancelBtn.onclick = () => { hide(form); show(createBtn); };
-
-/* ----------  Init ---------- */
-addProdBtn.onclick = () => addProductField();
-
+/* --------------------------------------------------------------
+   INICJALIZACJA – wszystko po załadowaniu DOM
+   -------------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', async () => {
-  resetForm();
+  /* ---- pobranie elementów ---- */
+  createBtn               = $('#createDebtBtn');
+  form                    = $('#debtForm');
+  cancelBtn               = $('#cancelDebtBtn');
+  saveBtn                 = $('#saveDebtBtn');
+  addProdBtn              = $('#addProductBtn');
+  productsC               = $('#productsContainer');
+  titleInp                = $('#debtTitle');
+  debtorSel               = $('#debtorSelect');
+  dueDateInp              = $('#dueDate');
+  peopleUL                = $('#peopleList');
+  activeDiv               = $('#activeDebtsList');
+  archDiv                 = $('#archivedDebtsList');
+  receiptModal            = $('#receiptModal');
+  receiptPre              = $('#receiptContent');
+  printBtn                = $('#printReceiptBtn');
+  closeBtn                = $('#closeModalBtn');
+
+  paymentModal            = $('#paymentModal');
+  paymentCash             = $('#paymentCash');
+  paymentTransfer         = $('#paymentTransfer');
+  cancelPaymentBtn        = $('#cancelPaymentBtn');
+  paymentConfirmModal    = $('#paymentConfirmModal');
+  paymentConfirmContent   = $('#paymentConfirmContent');
+  printConfirmBtn         = $('#printConfirmBtn');
+  closeConfirmBtn         = $('#closeConfirmBtn');
+
+  /* ---- obsługa zdarzeń ---- */
+
+  // Dodawanie/usuwanie pól produktów
+  productsC.addEventListener('click', (e) => {
+    if (e.target.classList.contains('remove')) {
+      e.target.parentElement.remove();
+      if (!productsC.children.length) addProductField();
+    }
+  });
+
+  addProdBtn.addEventListener('click', () => addProductField());
+
+  // Formularz nowego długu
+  createBtn.addEventListener('click', () => {
+    show(form);
+    hide(createBtn);
+    resetForm();
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    hide(form);
+    show(createBtn);
+  });
+
+  // Zapis nowego długu
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const title     = titleInp.value.trim();
+    const debtorIds = [...debtorSel.selectedOptions].map(o => o.value);
+    const dueDate   = dueDateInp.value;
+    const products  = [...productsC.children].map(c => ({
+      name:  c.querySelector('.p-name').value.trim(),
+      price: Number(c.querySelector('.p-price').value)
+    })).filter(p => p.name && !isNaN(p.price));
+
+    if (!title || !debtorIds.length || !dueDate || !products.length) {
+      alert('Uzupełnij wszystkie wymagane pola.');
+      return;
+    }
+
+    await addDoc(collection(db, 'debts'), {
+      title,
+      debtorIds,
+      products,
+      dueDate,
+      isPaid: false,
+      createdAt: serverTimestamp()
+    });
+
+    hide(form);
+    show(createBtn);
+    resetForm();
+    loadDebts();
+  });
+
+  // Paragon – drukowanie
+  printBtn.addEventListener('click', () => window.print());
+  closeBtn.addEventListener('click', () => receiptModal.close());
+
+  // Wybór metody płatności
+  paymentCash.addEventListener('click', () => processPayment('cash'));
+  paymentTransfer.addEventListener('click', () => processPayment('transfer'));
+  cancelPaymentBtn.addEventListener('click', () => {
+    paymentModal.close();
+    pendingPaymentDebtId = null;
+    pendingPaymentDebtData = null;
+  });
+
+  // Potwierdzenie opłaty – drukowanie
+  printConfirmBtn.addEventListener('click', () => window.print());
+  closeConfirmBtn.addEventListener('click', () => paymentConfirmModal.close());
+
+  /* ---- wczytanie danych ---- */
   await loadPeople();
   await loadDebts();
+
+  // Na starcie formularz jest ukryty, ale dodajemy jedno puste pole produktu
+  addProductField();
 });

@@ -7,15 +7,16 @@
   --green-dark:#218838;
 }
 
+/* Reset */
 *{box-sizing:border-box;margin:0;padding:0}
 
+/* Layout */
 body{
   font-family:system-ui,Arial,sans-serif;
   background:#f4f4f4;
   color:#333;
   padding:20px;
 }
-
 .container{
   max-width:900px;
   margin:auto;
@@ -24,17 +25,15 @@ body{
   border-radius:8px;
   box-shadow:0 2px 4px rgba(0,0,0,.1);
 }
-
 h1,h2,h3{color:var(--blue);margin-bottom:.4em}
 .section{margin-bottom:2rem;border-bottom:1px solid #eee;padding-bottom:2rem}
 
+/* Form */
 label{display:block;margin:10px 0 5px;font-weight:700}
-
 input,select,button{
   font:inherit;
   border-radius:4px;
 }
-
 input[type=text],
 input[type=number],
 input[type=date],
@@ -44,9 +43,7 @@ select{
   border:1px solid #ccc;
   margin-bottom:10px;
 }
-
 select[multiple]{height:110px}
-
 button{
   background:var(--blue);
   color:#fff;
@@ -59,9 +56,16 @@ button:hover{background:var(--blue-dark)}
 button.remove{background:var(--red);padding:8px 12px}
 button.remove:hover{background:var(--red-dark)}
 
-.product-item{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+/* Lista produktów w formularzu */
+.product-item{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  margin-bottom:8px;
+}
 .product-item input{flex:1;margin-bottom:0}
 
+/* Długi */
 .debt-item{
   background:#e9ecef;
   border:1px solid #dee2e6;
@@ -76,8 +80,8 @@ button.remove:hover{background:var(--red-dark)}
 .debt-item.archived{background:#f8f9fa;color:#6c757d}
 .debt-item small{color:#666;font-style:italic}
 
+/* Drobne */
 .small-text{font-size:.8em;color:#666;margin:-5px 0 10px}
-
 .hidden{display:none}
 
 /* Modale */
@@ -88,30 +92,24 @@ dialog{
   padding:20px;
   max-width:90vw;
 }
-
-#receiptModal, #paymentConfirmModal{
-  width:100mm; /* szerokość paragonu - większa dla lepszej czytelności */
+#receiptModal,
+#paymentConfirmModal{
+  width:100mm;               /* szerszy paragon */
 }
-
 .modal-actions{text-align:center;margin-top:1rem}
 .modal-actions button{margin:0 5px}
 
-/* Modal płatności */
+/* Modal wyboru płatności */
 #paymentModal{
   width:300px;
   text-align:center;
 }
-
-#paymentModal h3{
-  margin-bottom:1.5rem;
-}
-
+#paymentModal h3{margin-bottom:1.5rem}
 .payment-options{
   display:flex;
   gap:1rem;
   margin-bottom:1rem;
 }
-
 .payment-btn{
   flex:1;
   padding:20px;
@@ -122,38 +120,28 @@ dialog{
   align-items:center;
   gap:0.5rem;
 }
-
-.payment-btn:hover{
-  background:var(--green-dark);
-}
-
+.payment-btn:hover{background:var(--green-dark)}
 .cancel-btn{
   background:var(--red);
   width:100%;
-  margin:0;
 }
+.cancel-btn:hover{background:var(--red-dark)}
 
-.cancel-btn:hover{
-  background:var(--red-dark);
-}
-
-/* Paragony - większa czcionka */
-#receiptContent, #paymentConfirmContent{
+/* Paragony – większa czcionka */
+#receiptContent,
+#paymentConfirmContent{
   font-family:'Courier New',monospace;
   white-space:pre;
-  font-size:1.3em; /* Zwiększona czcionka */
+  font-size:1.3em;          /* większa czcionka niż wcześniej */
   font-weight:bold;
   line-height:1.4;
   overflow-x:auto;
 }
 
-/* Wydruk */
+/* Wydruk – pokazujemy tylko otwarty dialog */
 @media print{
   body *{visibility:hidden}
-  
-  /* Pokazuj aktywny modal */
   dialog[open], dialog[open] *{visibility:visible}
-  
   dialog{
     position:fixed;
     left:0;
@@ -165,23 +153,17 @@ dialog{
     margin:0;
     max-width:none;
   }
-  
-  #receiptContent, #paymentConfirmContent{
-    font-size:1.4em; /* Jeszcze większa czcionka na wydruku */
+  #receiptContent,
+  #paymentConfirmContent{
+    font-size:1.4em;      /* jeszcze większa czcionka w druku */
     page-break-inside:avoid;
   }
-  
-  .modal-actions{display:none}
+  .modal-actions,
   button{display:none}
 }
 
 /* Responsywność */
 @media(max-width:600px){
-  .payment-options{
-    flex-direction:column;
-  }
-  
-  dialog{
-    width:95vw;
-  }
+  .payment-options{flex-direction:column}
+  dialog{width:95vw}
 }
