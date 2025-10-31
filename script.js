@@ -14,11 +14,11 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 import { db } from './firebase-init.js';
 
-/* ----------  EMAILJS KONFIGURACJA ---------- */
+/* ----------  EMAILJS KONFIGURACJA (Z TWOIMI SZLABLONAMI) ---------- */
 const EMAILJS_CONFIG = {
-    SERVICE_ID: 'service_xxxxxxx',              // ← ZMIEŃ na swoje ID serwisu z EmailJS (np. service_gmail)
-    TEMPLATE_NEW_DEBT: 'template_new_debt',     // ← ZMIEŃ na ID szablonu dla nowego długu
-    TEMPLATE_PAID_DEBT: 'template_paid_debt'    // ← ZMIEŃ na ID szablonu dla opłaconego długu
+    SERVICE_ID: 'service_xxxxxxx',              // ← ZMIEŃ na swoje Service ID z EmailJS
+    TEMPLATE_NEW_DEBT: 'debt_created_template',     // ← Twój szablon nowego długu
+    TEMPLATE_PAID_DEBT: 'debt_paid_template'        // ← Twój szablon opłaconego długu
 };
 
 /* ----------  Pomocnicza funkcja selektora ---------- */
@@ -58,36 +58,74 @@ function addProductField(name = '', price = '') {
 }
 
 /* --------------------------------------------------------------
-   FUNKCJA WYSYŁANIA EMAILA (EmailJS)
+   FUNKCJA WYSYŁANIA EMAILA (EmailJS) - ZAKTUALIZOWANA
    -------------------------------------------------------------- */
-async function sendNotificationEmail(templateId, debtData, method = null) {
+async function sendNotificationEmail(templateId, debtData, method = null, debtId = null) {
     const total = debtData.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
+    const orderId = debtId ? debtId.slice(0, 8).toUpperCase() : 'NOWY_DŁUG';
     
-    // Pobierz maile wszystkich dłużników
-    for (const pid of debtData.debtorIds) {
-        const pDoc = await getDoc(doc(db, 'people', pid));
-        if (pDoc.exists() && pDoc.data().email) {
-            
-            const emailParams = {
-                to_email: pDoc.data().email,           // Email dłużnika
-                to_name: pDoc.data().name,             // Imię dłużnika
-                debt_title: debtData.title,            // Tytuł długu
-                total_amount: total,                   // Suma
-                due_date: new Date(debtData.dueDate).toLocaleDateString('pl-PL'),
-                payment_method: method || 'N/A',       // Metoda płatności (lub N/A dla nowego długu)
-                payment_date: method ? new Date().toLocaleDateString('pl-PL') : 'N/A'
-            };
+    // Dla nowego długu
+    if (templateId === EMAILJS_CONFIG.TEMPLATE_NEW_DEBT) {
+        // Wysyłamy email do każdego dłużnika z listą produktów
+        for (const pid of debtData.debtorIds) {
+            const pDoc = await getDoc(doc(db, 'people', pid));
+            if (pDoc.exists() && pDoc.data().email) {
+                
+                // Przygotuj listę produktów jako HTML
+                let productsHtml = '';
+                debtData.products.forEach(product => {
+                    productsHtml += `
+                        <tr style="vertical-align: top;">
+                            <td style="padding: 24px 8px 0 8px; width: 100%;">
+                                <div>${product.name}</div>
+                                <div style="font-size: 14px; color: #888; padding-top: 4px;">ilość: 1</div>
+                            </td>
+                            <td style="padding: 24px 4px 0 0; white-space: nowrap;">
+                                <strong>${Number(product.price).toFixed(2)} zł</strong>
+                            </td>
+                        </tr>`;
+                });
 
-            try {
-                // emailjs jest globalny (załadowany w HTML)
-                await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, emailParams);
-                console.log(`✅ Email wysłany do ${pDoc.data().name} (${pDoc.data().email})`);
-            } catch (error) {
-                console.error(`❌ Błąd wysyłki do ${pDoc.data().name}:`, error);
-                alert(`Nie udało się wysłać emaila do ${pDoc.data().name}. Sprawdź konfigurację EmailJS.`);
+                const emailParams = {
+                    to_email: pDoc.data().email,
+                    to_name: pDoc.data().name,
+                    order_id: orderId,
+                    name: debtData.title,
+                    units: debtData.products.length,
+                    price: total,
+                    'cost.tax': '0.00',      // Brak podatku w tym systemie
+                    'cost.total': total
+                };
+
+                try {
+                    await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, emailParams);
+                    console.log(`✅ Email nowy dług wysłany do ${pDoc.data().name}`);
+                } catch (error) {
+                    console.error(`❌ Błąd wysyłki nowego długu do ${pDoc.data().name}:`, error);
+                }
             }
-        } else {
-            console.warn(`⚠️ Brak emaila dla dłużnika o ID: ${pid}`);
+        }
+    }
+    // Dla opłaconego długu
+    else if (templateId === EMAILJS_CONFIG.TEMPLATE_PAID_DEBT) {
+        // Wysyłamy email do każdego dłużnika
+        for (const pid of debtData.debtorIds) {
+            const pDoc = await getDoc(doc(db, 'people', pid));
+            if (pDoc.exists() && pDoc.data().email) {
+                
+                const emailParams = {
+                    to_email: pDoc.data().email,
+                    to_name: pDoc.data().name,
+                    order_id: orderId
+                };
+
+                try {
+                    await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, emailParams);
+                    console.log(`✅ Email opłacony dług wysłany do ${pDoc.data().name}`);
+                } catch (error) {
+                    console.error(`❌ Błąd wysyłki opłaconego długu do ${pDoc.data().name}:`, error);
+                }
+            }
         }
     }
 }
@@ -198,7 +236,8 @@ async function processPayment(method) {
   await sendNotificationEmail(
     EMAILJS_CONFIG.TEMPLATE_PAID_DEBT,
     pendingPaymentDebtData,
-    method === 'cash' ? 'Gotówka' : 'Przelew'
+    method === 'cash' ? 'Gotówka' : 'Przelew',
+    pendingPaymentDebtId
   );
 
   // 3. Generowanie potwierdzenia
@@ -380,15 +419,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // Zapis do Firestore
-    await addDoc(collection(db, 'debts'), {
+    const docRef = await addDoc(collection(db, 'debts'), {
       ...newDebt,
       createdAt: serverTimestamp()
     });
 
-    // Wysyłka emaila o nowym długu
+    // Wysyłka emaila o nowym długu (z ID dokumentu)
     await sendNotificationEmail(
       EMAILJS_CONFIG.TEMPLATE_NEW_DEBT,
-      newDebt
+      newDebt,
+      null,
+      docRef.id
     );
 
     hide(form);
