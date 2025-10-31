@@ -14,11 +14,14 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 import { db } from './firebase-init.js';
 
-/* ----------  EMAILJS KONFIGURACJA (Z TWOIMI SZLABLONAMI) ---------- */
+/* ----------  EMAILJS KONFIGURACJA (UZUPEŁNIJ SWOIMI DANYMI) ---------- */
 const EMAILJS_CONFIG = {
-    SERVICE_ID: 'service_i86iyj3',              // ← ZMIEŃ na swoje Service ID z EmailJS
-    TEMPLATE_NEW_DEBT: 'debt_created_template',     // ← Twój szablon nowego długu
-    TEMPLATE_PAID_DEBT: 'debt_paid_template'        // ← Twój szablon opłaconego długu
+    // Service ID z EmailJS (np. service_123abc) - znajdziesz w Email Services > Twoja usługa > Service ID
+    SERVICE_ID: 'YOUR_EMAILJS_SERVICE_ID', // <--- Pamiętaj, aby to ZAMIENIĆ na swoje Service ID!
+    // Template ID dla nowego długu
+    TEMPLATE_NEW_DEBT: 'template_2orr235',     
+    // Template ID dla opłaconego długu
+    TEMPLATE_PAID_DEBT: 'template_48jy2ur'        
 };
 
 /* ----------  Pomocnicza funkcja selektora ---------- */
@@ -62,70 +65,47 @@ function addProductField(name = '', price = '') {
    -------------------------------------------------------------- */
 async function sendNotificationEmail(templateId, debtData, method = null, debtId = null) {
     const total = debtData.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
-    const orderId = debtId ? debtId.slice(0, 8).toUpperCase() : 'NOWY_DŁUG';
-    
-    // Dla nowego długu
-    if (templateId === EMAILJS_CONFIG.TEMPLATE_NEW_DEBT) {
-        // Wysyłamy email do każdego dłużnika z listą produktów
-        for (const pid of debtData.debtorIds) {
-            const pDoc = await getDoc(doc(db, 'people', pid));
-            if (pDoc.exists() && pDoc.data().email) {
-                
-                // Przygotuj listę produktów jako HTML
-                let productsHtml = '';
-                debtData.products.forEach(product => {
-                    productsHtml += `
-                        <tr style="vertical-align: top;">
-                            <td style="padding: 24px 8px 0 8px; width: 100%;">
-                                <div>${product.name}</div>
-                                <div style="font-size: 14px; color: #888; padding-top: 4px;">ilość: 1</div>
-                            </td>
-                            <td style="padding: 24px 4px 0 0; white-space: nowrap;">
-                                <strong>${Number(product.price).toFixed(2)} zł</strong>
-                            </td>
-                        </tr>`;
-                });
+    const orderId = debtId ? debtId.slice(0, 8).toUpperCase() : 'N/A'; // Użyj ID długu
 
-                const emailParams = {
-                    to_email: pDoc.data().email,
-                    to_name: pDoc.data().name,
-                    order_id: orderId,
-                    name: debtData.title,
-                    units: debtData.products.length,
-                    price: total,
-                    'cost.tax': '0.00',      // Brak podatku w tym systemie
-                    'cost.total': total
+    // Iteruj przez wszystkich dłużników
+    for (const pid of debtData.debtorIds) {
+        const pDoc = await getDoc(doc(db, 'people', pid));
+        if (pDoc.exists() && pDoc.data().email) {
+            const debtorEmail = pDoc.data().email;
+            const debtorName = pDoc.data().name;
+            
+            let emailParams = {
+                // WSPÓLNE DLA OBU SZABLONÓW (EmailJS sam przekazuje to_email/to_name do From/To)
+                to_email: debtorEmail, // Używane przez EmailJS w tle
+                to_name: debtorName,   // Używane przez EmailJS w tle
+                order_id: orderId      // {{order_id}} w szablonach
+            };
+
+            if (templateId === EMAILJS_CONFIG.TEMPLATE_NEW_DEBT) {
+                // PARAMETRY DLA 'debt_created_template'
+                emailParams = {
+                    ...emailParams,
+                    name: debtData.title,           // {{name}} w szablonie
+                    units: debtData.products.length, // {{units}} w szablonie
+                    price: total,                   // {{price}} w szablonie
+                    'cost.tax': '0.00',             // {{cost.tax}} w szablonie
+                    'cost.total': total             // {{cost.total}} w szablonie
                 };
-
-                try {
-                    await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, emailParams);
-                    console.log(`✅ Email nowy dług wysłany do ${pDoc.data().name}`);
-                } catch (error) {
-                    console.error(`❌ Błąd wysyłki nowego długu do ${pDoc.data().name}:`, error);
-                }
             }
-        }
-    }
-    // Dla opłaconego długu
-    else if (templateId === EMAILJS_CONFIG.TEMPLATE_PAID_DEBT) {
-        // Wysyłamy email do każdego dłużnika
-        for (const pid of debtData.debtorIds) {
-            const pDoc = await getDoc(doc(db, 'people', pid));
-            if (pDoc.exists() && pDoc.data().email) {
-                
-                const emailParams = {
-                    to_email: pDoc.data().email,
-                    to_name: pDoc.data().name,
-                    order_id: orderId
-                };
+            // else if (templateId === EMAILJS_CONFIG.TEMPLATE_PAID_DEBT) {
+            //     // 'debt_paid_template' potrzebuje tylko order_id (już dodane do emailParams)
+            // }
 
-                try {
-                    await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, emailParams);
-                    console.log(`✅ Email opłacony dług wysłany do ${pDoc.data().name}`);
-                } catch (error) {
-                    console.error(`❌ Błąd wysyłki opłaconego długu do ${pDoc.data().name}:`, error);
-                }
+            try {
+                await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, emailParams);
+                console.log(`✅ Email '${templateId}' wysłany do ${debtorName} (${debtorEmail})`);
+            } catch (error) {
+                console.error(`❌ Błąd wysyłki emaila '${templateId}' do ${debtorName} (${debtorEmail}):`, error);
+                // Bardziej szczegółowy alert w przypadku błędu
+                alert(`Nie udało się wysłać emaila do ${debtorName} (${debtorEmail}). Upewnij się, że:\n1. Service ID i Template ID są poprawne w EmailJS.\n2. Wszelkie zmienne w szablonach EmailJS (np. {{order_id}}) są poprawnie zdefiniowane.\n3. Twoja usługa email w EmailJS jest aktywna. Szczegóły w konsoli przeglądarki (F12).`);
             }
+        } else {
+            console.warn(`⚠️ Brak emaila dla dłużnika ${pDoc.exists() ? pDoc.data().name : pid}. Nie wysłano emaila.`);
         }
     }
 }
@@ -236,7 +216,7 @@ async function processPayment(method) {
   await sendNotificationEmail(
     EMAILJS_CONFIG.TEMPLATE_PAID_DEBT,
     pendingPaymentDebtData,
-    method === 'cash' ? 'Gotówka' : 'Przelew',
+    method === 'cash' ? 'Gotówka' : 'Przelew', // Ten parametr nie jest używany w szablonie, ale zachowany dla spójności
     pendingPaymentDebtId
   );
 
@@ -428,8 +408,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     await sendNotificationEmail(
       EMAILJS_CONFIG.TEMPLATE_NEW_DEBT,
       newDebt,
-      null,
-      docRef.id
+      null, // brak metody płatności dla nowego długu
+      docRef.id // Przekazujemy ID długu
     );
 
     hide(form);
