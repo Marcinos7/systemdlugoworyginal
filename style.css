@@ -92,9 +92,11 @@ dialog{
   padding:20px;
   max-width:90vw;
 }
+/* Zwiększamy domyślną szerokość modala dla paragonów, aby uniknąć scrollbara na ekranie */
 #receiptModal,
 #paymentConfirmModal{
-  width:100mm;               /* szerszy paragon */
+  width:100mm; /* W trybie web, to już nie jest druk, więc może być szersze */
+  max-width: 90vw; /* Zapobiegnie wyjeżdżaniu poza ekran na małych urządzeniach */
 }
 .modal-actions{text-align:center;margin-top:1rem}
 .modal-actions button{margin:0 5px}
@@ -127,18 +129,18 @@ dialog{
 }
 .cancel-btn:hover{background:var(--red-dark)}
 
-/* Paragony – większa czcionka */
+/* Paragony – większa czcionka na ekranie */
 #receiptContent,
 #paymentConfirmContent{
   font-family:'Courier New',monospace;
   white-space:pre;
-  font-size:1.3em;          /* większa czcionka niż wcześniej */
+  font-size:1.3em;
   font-weight:bold;
   line-height:1.4;
-  overflow-x:auto;
+  /* USUNIĘTO: overflow-x:auto; */ 
 }
 
-/* Wydruk – pokazujemy tylko otwarty dialog */
+/* Wydruk – kluczowa sekcja */
 @media print{
   body *{visibility:hidden}
   dialog[open], dialog[open] *{visibility:visible}
@@ -146,24 +148,34 @@ dialog{
     position:fixed;
     left:0;
     top:0;
-    width:90%;
+    width:80mm; /* STAŁA SZEROKOŚĆ DLA DRUKARKI TERMICZNEJ 80mm */
     box-shadow:none;
     background:#fff;
-    padding:10mm;
+    padding:0; /* Zerujemy padding, bo paragony często nie mają marginesów */
     margin:0;
-    max-width:none;
+    max-width:none; /* Anulujemy max-width z widoku web */
+    page-break-after: always; /* Zapewnia, że każdy modal drukuje się na osobnej stronie */
   }
   #receiptContent,
   #paymentConfirmContent{
-    font-size:1.4em;      /* jeszcze większa czcionka w druku */
+    font-size:0.8em; /* ZMNIEJSZAMY CZCIONKĘ, aby tekst się zmieścił na 80mm */
+    font-weight: normal; /* Można zmniejszyć grubość, aby zajmował mniej miejsca */
+    line-height: 1.2; /* Mniejsze odstępy między liniami */
+    width: 100%; /* Upewniamy się, że PRE zajmuje całą szerokość rodzica */
+    box-sizing: border-box; /* padding/border wliczane w width */
+    padding: 0 2mm; /* Drobne marginesy boczne, żeby tekst nie dochodził do samej krawędzi */
     page-break-inside:avoid;
   }
   .modal-actions,
-  button{display:none}
+  button{display:none} /* Ukrywamy przyciski drukowania na wydruku */
 }
 
 /* Responsywność */
 @media(max-width:600px){
   .payment-options{flex-direction:column}
   dialog{width:95vw}
-}
+  #receiptModal,
+  #paymentConfirmModal{
+    width:95vw; /* Drobna korekta dla małych ekranów, żeby modal nie był zbyt szeroki */
+  }
+}```  
