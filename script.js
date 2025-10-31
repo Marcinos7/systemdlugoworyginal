@@ -242,7 +242,7 @@ async function showReceiptModal(debt) {
     let receiptHtml = `
 <pre>
 <div class="receipt-header">PARAGON DŁUGU</div>
-<div style="text-align: center;">NR: ${debt.id.substring(0, 8)}</div>
+<div class="receipt-subheader">NR: ${debt.id.substring(0, 8)}</div>
 ----------------------------------------
 Data Wystawienia: ${createdAtDate}
 
@@ -253,7 +253,7 @@ Dłużnik(cy): ${debtorNames.join(', ')}
 PRODUKTY:
 `;
     debt.products.forEach(p => {
-        // Użyj pogrubionego tekstu dla nazw produktów i cen
+        // Tekst produktów będzie pogrubiony przez #receiptContent style
         receiptHtml += `${p.name.padEnd(25)} ${p.price.toFixed(2).padStart(8)} zł\n`;
     });
 
@@ -264,14 +264,13 @@ TERMIN SPŁATY: ${dueDate}
 ----------------------------------------
 Status: ${debt.isPaid ? 'OPŁACONY' : 'NIEOPŁACONY'}
 ----------------------------------------
-        Opłatę należy uiścić na BLIK 
-        nr tel. 510 556 024
+        Dziękujemy za Spłatę!
 ----------------------------------------
 </pre>
 `;
 
     receiptContent.innerHTML = receiptHtml;
-    receiptModal.classList.remove('hidden');
+    receiptModal.classList.remove('hidden'); // POKAŻ MODAL
 }
 
 // Funkcje modala paragonu

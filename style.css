@@ -148,8 +148,8 @@ button:hover {
     text-align: left;
     white-space: pre-wrap; /* Zachowanie formatowania paragonu */
     font-family: 'Courier New', Courier, monospace; /* Czcionka jak na paragonie */
-    /* KLUCZOWE ZMIANY DLA POGRUBIONEGO TEKSTU NA PARAGONIE */
-    font-size: 1.1em; /* Trochę większa czcionka */
+    /* ZWIĘKSZONY ROZMIAR I POGRUBIENIE DLA CAŁEGO TEKSTU W PARAGONIE */
+    font-size: 1.1em; /* Zwiększony rozmiar */
     font-weight: bold; /* Pogrubienie */
     line-height: 1.5; /* Większy odstęp między liniami dla lepszej czytelności */
     border: 1px dashed #ccc;
@@ -157,19 +157,28 @@ button:hover {
     margin-bottom: 15px;
 }
 
-/* Możemy dodać specjalną klasę dla nagłówków w paragonie, jeśli chcemy by były jeszcze grubsze */
 .receipt-header {
-    font-size: 1.2em; /* Jeszcze większy rozmiar dla nagłówka */
-    font-weight: bolder; /* Jeszcze większe pogrubienie */
+    font-size: 1.5em; /* Znacznie większy rozmiar dla nagłówka */
+    font-weight: 900; /* Maksymalne pogrubienie */
+    text-align: center;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+}
+
+.receipt-subheader {
+    font-size: 1.2em; /* Mniejszy niż header, ale nadal duży */
+    font-weight: bold;
     text-align: center;
     margin-bottom: 10px;
 }
 
 .receipt-total {
-    font-size: 1.3em;
-    font-weight: bolder;
+    font-size: 1.4em; /* Duży rozmiar dla sumy całkowitej */
+    font-weight: 900; /* Maksymalne pogrubienie */
+    text-align: right; /* Wyrównanie do prawej dla kwoty */
+    margin-top: 10px;
+    margin-bottom: 5px;
 }
-
 
 @media print {
     body * {
