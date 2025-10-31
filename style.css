@@ -110,8 +110,9 @@ button:hover {
     margin-top: 0;
 }
 
+/* KLUCZOWA ZMIANA: Poprawiona i zawsze widoczna klasa hidden */
 .hidden {
-    display: none;
+    display: none !important;
 }
 
 .small-text {
@@ -153,9 +154,6 @@ button:hover {
     border: 1px dashed #ccc;
     padding: 10px;
     margin-bottom: 15px;
-}
-.hidden {
-    display: none !important; /* Użyj !important, aby upewnić się, że to nadpisuje inne style */
 }
 
 @media print {

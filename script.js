@@ -7,7 +7,6 @@ const firebaseConfig = {
     messagingSenderId: "1094952385361",
     appId: "1:1094952385361:web:ffb9635d9220b945e33170"
 };
-
 // Inicjalizacja Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -37,7 +36,7 @@ const closeReceiptModalButton = document.getElementById('closeReceiptModalButton
 createDebtButton.addEventListener('click', () => {
     debtForm.classList.remove('hidden');
     createDebtButton.classList.add('hidden');
-    resetDebtForm();
+    resetDebtForm(); // Zresetuj formularz przy każdym otwarciu
 });
 
 cancelDebtButton.addEventListener('click', () => {
@@ -53,6 +52,10 @@ addProductButton.addEventListener('click', () => {
 productsContainer.addEventListener('click', (event) => {
     if (event.target.classList.contains('remove-product-btn')) {
         event.target.closest('.product-item').remove();
+        // Jeśli usunięto wszystkie pola produktów, dodaj jedno puste, aby zawsze było minimum 1
+        if (productsContainer.querySelectorAll('.product-item').length === 0) {
+            addProductField();
+        }
     }
 });
 
@@ -69,7 +72,10 @@ function addProductField(productName = '', productPrice = '') {
 
 function resetDebtForm() {
     debtTitleInput.value = '';
-    debtorSelect.selectedIndex = -1; // Odznacza wszystkie
+    // Odznacza wszystkie opcje w selekcie
+    Array.from(debtorSelect.options).forEach(option => {
+        option.selected = false;
+    });
     dueDateInput.value = '';
     productsContainer.innerHTML = '<h3>Produkty:</h3>'; // Usuń stare produkty
     addProductField(); // Dodaj jedno puste pole produktu
@@ -125,12 +131,12 @@ function displayDebt(debt) {
     }
 
     // Pobierz nazwy dłużników
-    const debtorNames = debt.debtorIds.map(async id => {
+    const debtorNamesPromises = debt.debtorIds.map(async id => {
         const personDoc = await db.collection('people').doc(id).get();
         return personDoc.exists ? personDoc.data().name : 'Nieznany';
     });
 
-    Promise.all(debtorNames).then(names => {
+    Promise.all(debtorNamesPromises).then(names => {
         const totalAmount = debt.products.reduce((sum, p) => sum + parseFloat(p.price), 0).toFixed(2);
         const dueDate = new Date(debt.dueDate).toLocaleDateString();
 
@@ -174,13 +180,13 @@ saveDebtButton.addEventListener('click', async () => {
     document.querySelectorAll('.product-item').forEach(item => {
         const name = item.querySelector('.product-name').value.trim();
         const price = item.querySelector('.product-price').value.trim();
-        if (name && price) {
+        if (name && price && !isNaN(parseFloat(price))) { // Dodatkowa walidacja ceny
             products.push({ name, price: parseFloat(price) });
         }
     });
 
     if (!title || debtorIds.length === 0 || !dueDate || products.length === 0) {
-        alert('Proszę wypełnić wszystkie pola: tytuł, dłużnik, termin spłaty i przynajmniej jeden produkt.');
+        alert('Proszę wypełnić wszystkie pola: tytuł, dłużnik, termin spłaty i przynajmniej jeden produkt z ceną.');
         return;
     }
 
@@ -228,7 +234,10 @@ async function showReceiptModal(debt) {
     }));
 
     const totalAmount = debt.products.reduce((sum, p) => sum + parseFloat(p.price), 0).toFixed(2);
-    const createdAtDate = debt.createdAt ? new Date(debt.createdAt.toDate()).toLocaleString() : 'N/A';
+    // Sprawdzanie, czy debt.createdAt istnieje i jest obiektem Timestamp
+    const createdAtDate = debt.createdAt && typeof debt.createdAt.toDate === 'function'
+                          ? new Date(debt.createdAt.toDate()).toLocaleString()
+                          : 'N/A';
     const dueDate = new Date(debt.dueDate).toLocaleDateString();
 
     let receiptHtml = `
@@ -261,7 +270,7 @@ Status: ${debt.isPaid ? 'OPŁACONY' : 'NIEOPŁACONY'}
 `;
 
     receiptContent.innerHTML = receiptHtml;
-    receiptModal.classList.remove('hidden');
+    receiptModal.classList.remove('hidden'); // POKAŻ MODAL
 }
 
 // Funkcje modala paragonu
@@ -270,26 +279,16 @@ printReceiptButton.addEventListener('click', () => {
 });
 
 closeReceiptModalButton.addEventListener('click', () => {
-    receiptModal.classList.add('hidden');
+    receiptModal.classList.add('hidden'); // UKRYJ MODAL
 });
 
 
-
 // ---- Inicjalizacja ----
-// Załaduj osoby i długi przy starcie aplikacji
 document.addEventListener('DOMContentLoaded', () => {
     loadPeople();
     loadDebts();
 
-    // Dodaj domyślne pole produktu
+    // Dodaj domyślne pole produktu (na początku)
     addProductField();
+    resetDebtForm(); // Upewnij się, że formularz jest czysty i ukryty na starcie
 });
-
-// Tutaj dodałbym też funkcję do dodawania osób, jeśli chcesz to robić przez UI,
-// albo po prostu ręcznie dodasz je w konsoli Firebase.
-// Na potrzeby tego przykładu, załóżmy, że masz już kilka osób w kolekcji 'people' w Firestore.
-// Przykład dodania osoby przez konsolę Firebase:
-// Kolekcja: people
-// Dokument (auto-id):
-//   name: "Jan Kowalski"
-//   email: "jan.kowalski@example.com" (opcjonalnie)

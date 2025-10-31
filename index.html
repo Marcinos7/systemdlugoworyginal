@@ -36,11 +36,7 @@
 
                 <div id="productsContainer">
                     <h3>Produkty:</h3>
-                    <div class="product-item">
-                        <input type="text" class="product-name" placeholder="Nazwa produktu">
-                        <input type="number" class="product-price" placeholder="Cena" step="0.01">
-                        <button class="remove-product-btn">Usuń</button>
-                    </div>
+                    <!-- Domyślny produkt dodawany przez JS -->
                 </div>
                 <button id="addProductButton">Dodaj Produkt</button>
 
@@ -66,7 +62,7 @@
             </div>
         </div>
 
-        <div id="receiptModal" class="modal hidden">
+        <div id="receiptModal" class="modal hidden"> <!-- KLUCZOWA ZMIANA: class="modal hidden" -->
             <div class="modal-content">
                 <h3>Podgląd Paragonu</h3>
                 <div id="receiptContent">
