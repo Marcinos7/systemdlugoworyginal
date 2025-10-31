@@ -28,6 +28,7 @@ const receiptModal = document.getElementById('receiptModal');
 const receiptContent = document.getElementById('receiptContent');
 const printReceiptButton = document.getElementById('printReceiptButton');
 const closeReceiptModalButton = document.getElementById('closeReceiptModalButton');
+const receiptModalTitle = document.getElementById('receiptModalTitle'); // Referencja do nowego tytułu modala
 
 
 // ---- Funkcje do zarządzania UI ----
@@ -239,10 +240,12 @@ async function showReceiptModal(debt) {
                           : 'N/A';
     const dueDate = new Date(debt.dueDate).toLocaleDateString();
 
-    let receiptHtml = `
-<pre>
-<div class="receipt-header">PARAGON DŁUGU</div>
-<div class="receipt-subheader">NR: ${debt.id.substring(0, 8)}</div>
+    // Konstruujemy HTML paragonu w całości wewnątrz jednego <pre>
+    // Używamy spacji i znaków specjalnych do formatowania
+    let receiptText = `
+----------------------------------------
+       PARAGON DŁUGU
+       NR: ${debt.id.substring(0, 8)}
 ----------------------------------------
 Data Wystawienia: ${createdAtDate}
 
@@ -253,23 +256,22 @@ Dłużnik(cy): ${debtorNames.join(', ')}
 PRODUKTY:
 `;
     debt.products.forEach(p => {
-        // Tekst produktów będzie pogrubiony przez #receiptContent style
-        receiptHtml += `${p.name.padEnd(25)} ${p.price.toFixed(2).padStart(8)} zł\n`;
+        // padEnd i padStart do wyrównania tekstu
+        receiptText += `${p.name.padEnd(25)} ${p.price.toFixed(2).padStart(8)} zł\n`;
     });
 
-    receiptHtml += `
+    receiptText += `
 ----------------------------------------
-<div class="receipt-total">SUMA CAŁKOWITA:            ${totalAmount.padStart(8)} zł</div>
+SUMA CAŁKOWITA:            ${totalAmount.padStart(8)} zł
 TERMIN SPŁATY: ${dueDate}
 ----------------------------------------
 Status: ${debt.isPaid ? 'OPŁACONY' : 'NIEOPŁACONY'}
 ----------------------------------------
         Dziękujemy za Spłatę!
 ----------------------------------------
-</pre>
 `;
-
-    receiptContent.innerHTML = receiptHtml;
+    // Ustawiamy innerHTML elementu receiptContent, który ma style dla <pre>
+    receiptContent.innerHTML = `<pre>${receiptText}</pre>`;
     receiptModal.classList.remove('hidden'); // POKAŻ MODAL
 }
 

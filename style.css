@@ -144,41 +144,35 @@ button:hover {
     text-align: center;
 }
 
+/* Stylizacja dla treści paragonu - bez ramki, pogrubiony i większy tekst */
 #receiptContent {
     text-align: left;
-    white-space: pre-wrap; /* Zachowanie formatowania paragonu */
-    font-family: 'Courier New', Courier, monospace; /* Czcionka jak na paragonie */
-    /* ZWIĘKSZONY ROZMIAR I POGRUBIENIE DLA CAŁEGO TEKSTU W PARAGONIE */
-    font-size: 1.1em; /* Zwiększony rozmiar */
-    font-weight: bold; /* Pogrubienie */
-    line-height: 1.5; /* Większy odstęp między liniami dla lepszej czytelności */
-    border: 1px dashed #ccc;
-    padding: 10px;
+    white-space: pre; /* Używamy 'pre' aby zachować formatowanie spacji i nowych linii */
+    font-family: 'Courier New', Courier, monospace; /* Monospaced font dla wyglądu paragonu */
+    font-size: 1.1em; /* Zwiększony rozmiar czcionki */
+    font-weight: bold; /* Cały tekst paragonu jest pogrubiony */
+    line-height: 1.4; /* Odstęp między liniami */
+    padding: 10px 0; /* Bez ramki, tylko padding */
     margin-bottom: 15px;
 }
 
-.receipt-header {
-    font-size: 1.5em; /* Znacznie większy rozmiar dla nagłówka */
-    font-weight: 900; /* Maksymalne pogrubienie */
+/* Możemy delikatnie powiększyć i wycentrować tytuł wewnątrz pre, jeśli chcemy */
+#receiptContent .receipt-title-line {
+    font-size: 1.2em; /* Minimalnie większy */
+    font-weight: bolder; /* Jeszcze grubszy */
     text-align: center;
-    margin-bottom: 10px;
-    text-transform: uppercase;
-}
-
-.receipt-subheader {
-    font-size: 1.2em; /* Mniejszy niż header, ale nadal duży */
-    font-weight: bold;
-    text-align: center;
-    margin-bottom: 10px;
-}
-
-.receipt-total {
-    font-size: 1.4em; /* Duży rozmiar dla sumy całkowitej */
-    font-weight: 900; /* Maksymalne pogrubienie */
-    text-align: right; /* Wyrównanie do prawej dla kwoty */
-    margin-top: 10px;
+    display: block; /* Upewnij się, że jest blokiem dla text-align */
     margin-bottom: 5px;
 }
+
+#receiptContent .receipt-status-line {
+    font-size: 1.1em;
+    font-weight: bolder;
+    text-align: center;
+    display: block;
+    margin-top: 10px;
+}
+
 
 @media print {
     body * {
@@ -203,5 +197,8 @@ button:hover {
     }
     button {
         display: none; /* Ukryj przyciski w druku */
+    }
+    #receiptModalTitle { /* Ukryj tytuł "Paragon Długu" w podglądzie druku */
+        display: none;
     }
 }
