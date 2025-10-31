@@ -264,7 +264,8 @@ TERMIN SPŁATY: ${dueDate}
 ----------------------------------------
 Status: ${debt.isPaid ? 'OPŁACONY' : 'NIEOPŁACONY'}
 ----------------------------------------
-        Dziękujemy za Spłatę!
+        Opłatę należy uiścić na BLIK 
+        nr tel. 510 556 024
 ----------------------------------------
 </pre>
 `;
