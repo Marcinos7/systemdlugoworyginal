@@ -18,10 +18,17 @@ const dueDateInp = $('#dueDate');
 const peopleUL   = $('#peopleList');
 const activeDiv  = $('#activeDebtsList');
 const archDiv    = $('#archivedDebtsList');
-const modal      = $('#receiptModal');
+const receiptModal = $('#receiptModal');
 const receiptPre = $('#receiptContent');
 const printBtn   = $('#printReceiptBtn');
 const closeBtn   = $('#closeModalBtn');
+
+// Nowe modale do płatności
+const paymentMethodModal = $('#paymentMethodModal');
+const confirmPaymentMethodBtn = $('#confirmPaymentMethodBtn');
+const cancelPaymentMethodBtn = $('#cancelPaymentMethodBtn');
+const paymentConfirmationModal = $('#paymentConfirmationModal');
+const paymentConfirmationContent = $('#paymentConfirmationContent');
 
 /* ----------  UI helpers ---------- */
 const hide = (el) => el.classList.add('hidden');
@@ -108,48 +115,85 @@ const renderDebt = async (debt) => {
   if (!debt.isPaid) {
     const pay = document.createElement('button');
     pay.textContent = 'Opłacony';
-    pay.onclick = () => markAsPaid(debt.id);
+    pay.onclick = () => {
+      // Zapisujemy dane długu do zmiennych tymczasowych
+      window.currentDebtId = debt.id;
+      window.currentDebtAmount = total;
+      paymentMethodModal.showModal();
+    };
     btns.append(pay);
   }
 
   (debt.isPaid ? archDiv : activeDiv).append(box);
 };
 
-/* ----------  CRUD ---------- */
-const markAsPaid = async (id) => {
-  if (!confirm('Oznaczyć dług jako opłacony?')) return;
-  await updateDoc(doc(db, 'debts', id), { isPaid: true });
-  loadDebts();
-};
+/* ----------  Przeływ opłaty i potwierdzenia ---------- */
+confirmPaymentMethodBtn.addEventListener('click', async () => {
+  const selectedMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value;
+  if (!selectedMethod) return;
 
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
+  paymentMethodModal.close();
 
-  const title    = titleInp.value.trim();
-  const debtorIds= [...debtorSel.selectedOptions].map(o => o.value);
-  const dueDate  = dueDateInp.value;
-  const products = [...productsC.children].map(c => ({
-    name:  c.querySelector('.p-name').value.trim(),
-    price: Number(c.querySelector('.p-price').value)
-  })).filter(p => p.name && !isNaN(p.price));
-
-  if (!title || !debtorIds.length || !dueDate || !products.length) {
-    alert('Uzupełnij wszystkie wymagane pola.');
-    return;
-  }
-
-  await addDoc(collection(db, 'debts'), {
-    title, debtorIds, products, dueDate,
-    isPaid: false,
-    createdAt: serverTimestamp()
+  // Dane potwierdzenia opłaty
+  const debtId = window.currentDebtId;
+  const amount = window.currentDebtAmount;
+  const paymentDate = new Date().toLocaleDateString('pl-PL', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   });
 
-  hide(form); show(createBtn);
-  resetForm();
-  loadDebts();
+  // Treść potwierdzenia opłaty
+  const confirmationText = `
+----------------------------------------
+          POTWIERDZENIE OPŁATY
+----------------------------------------
+Numer długu: ${debtId.slice(0, 8)}
+Metoda płatności: ${selectedMethod.toUpperCase()}
+Kwota opłacona: ${amount} zł
+Data opłacenia: ${paymentDate}
+----------------------------------------
+POTWIERDZAMY ODBIÓR PŁATNOŚCI
+----------------------------------------
+`;
+
+  // Wyświetlamy potwierdzenie i uruchamiamy drukuj
+  paymentConfirmationContent.textContent = confirmationText;
+  paymentConfirmationModal.showModal();
+
+  // Opóźnienie, żeby modal zdążył się renderować przed drukiem
+  setTimeout(async () => {
+    window.print();
+    paymentConfirmationModal.close();
+
+    // Zapisujemy dane opłaty w bazie
+    try {
+      await updateDoc(doc(db, 'debts', debtId), {
+        isPaid: true,
+        paymentMethod: selectedMethod,
+        paymentDate: serverTimestamp()
+      });
+      loadDebts();
+    } catch (err) {
+      console.error('Błąd podczas oznaczania długu jako opłaconego:', err);
+      alert('Wystąpił błąd podczas zapisywania opłaty.');
+    }
+
+    // Usuwamy zmienne tymczasowe
+    delete window.currentDebtId;
+    delete window.currentDebtAmount;
+  }, 150);
 });
 
-/* ----------  Modal ---------- */
+cancelPaymentMethodBtn.addEventListener('click', () => {
+  paymentMethodModal.close();
+  delete window.currentDebtId;
+  delete window.currentDebtAmount;
+});
+
+/* ----------  Paragon długu ---------- */
 const openReceipt = (debt, names=[]) => {
   const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
   const issued = debt.createdAt?.toDate?.() ? debt.createdAt.toDate() : new Date();
@@ -169,7 +213,7 @@ Dłużnik(cy): ${names.join(', ')}
 PRODUKTY:
 `;
   debt.products.forEach(p => {
-    txt += `${p.name.padEnd(24)} ${p.price.toFixed(2).padStart(8)} zł\n`;
+    txt += `\({p.name.padEnd(24)} \){p.price.toFixed(2).padStart(8)} zł\n`;
   });
 
   txt += `
@@ -179,15 +223,16 @@ Termin spłaty: ${due.toLocaleDateString('pl-PL')}
 ----------------------------------------
 Status: ${debt.isPaid ? 'OPŁACONY' : 'NIEOPŁACONY'}
 ----------------------------------------
-  Dziękujemy za terminową spłatę!
+Dług można opłacić w ciągu 14 dni od wystawienia niniejszego paragonu długu podanymi metodami płatności: przelew, gotówka.
 ----------------------------------------`;
 
   receiptPre.textContent = txt;
-  modal.showModal();
+  receiptModal.showModal();
 };
 
+/* ----------  Obsługa modali ---------- */
 printBtn.onclick = () => window.print();
-closeBtn.onclick = () => modal.close();
+closeBtn.onclick = () => receiptModal.close();
 
 /* ----------  Przyciski formularza ---------- */
 createBtn.onclick = () => { show(form); hide(createBtn); resetForm(); };

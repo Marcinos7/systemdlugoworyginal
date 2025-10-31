@@ -77,29 +77,10 @@ button.remove:hover{background:var(--red-dark)}
 
 .hidden{display:none}
 
+/* Style modali */
 dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog{
   border:none;
   border-radius:8px;
   padding:20px;
-  width:80mm; /* szerokość paragonu */
-}
-.modal-actions{text-align:center;margin-top:1rem}
-.modal-actions button{margin:0 5px}
-
-#receiptContent{
-  font-family:'Courier New',monospace;
-  white-space:pre;
-  font-size:1.05em;
-  font-weight:bold;
-  line-height:1.35;
-}
-
-/* Wydruk tylko paragony */
-@media print{
-  body *{visibility:hidden}
-  dialog, dialog *{visibility:visible}
-  dialog{position:fixed;left:0;top:0;width:100%;box-shadow:none;background:none;padding:0}
-  dialog > *{margin:0}
-  button{display:none}
-}
+  width:80mm; /* Standardowa szerokość paragonu

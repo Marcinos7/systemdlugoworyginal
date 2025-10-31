@@ -7,7 +7,7 @@
 
   <link rel="stylesheet" href="style.css" />
 
-  <!--  Firebase v9 CDN  (modułowo) -->
+  <!-- Firebase v9 CDN -->
   <script type="module" src="firebase-init.js"></script>
 </head>
 
@@ -61,13 +61,36 @@
     </section>
   </div>
 
-  <!-- ==== MODAL PARAGONU ==== -->
+  <!-- ==== MODALE ==== -->
+  <!-- Modal paragonu długu -->
   <dialog id="receiptModal">
     <pre id="receiptContent"></pre>
     <div class="modal-actions">
       <button id="printReceiptBtn">Drukuj</button>
       <button id="closeModalBtn">Zamknij</button>
     </div>
+  </dialog>
+
+  <!-- Modal wyboru metody płatności -->
+  <dialog id="paymentMethodModal">
+    <h3>Wybierz metodę płatności</h3>
+    <div class="payment-method-option">
+      <input type="radio" id="paymentCash" name="paymentMethod" value="gotówka" required checked>
+      <label for="paymentCash">Gotówka</label>
+    </div>
+    <div class="payment-method-option">
+      <input type="radio" id="paymentTransfer" name="paymentMethod" value="przelew" required>
+      <label for="paymentTransfer">Przelew</label>
+    </div>
+    <div class="modal-actions">
+      <button id="confirmPaymentMethodBtn">Zatwierdź</button>
+      <button id="cancelPaymentMethodBtn">Anuluj</button>
+    </div>
+  </dialog>
+
+  <!-- Modal potwierdzenia opłaty (do druku) -->
+  <dialog id="paymentConfirmationModal">
+    <pre id="paymentConfirmationContent"></pre>
   </dialog>
 
   <!-- Główny skrypt -->
