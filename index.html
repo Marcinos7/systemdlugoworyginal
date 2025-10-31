@@ -1,79 +1,76 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Długów</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- Pamiętaj, aby dodać Firebase SDK tutaj -->
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-firestore.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>System Zarządzania Długami</title>
+
+  <link rel="stylesheet" href="style.css" />
+
+  <!--  Firebase v9 CDN  (modułowo) -->
+  <script type="module" src="firebase-init.js"></script>
 </head>
+
 <body>
-    <div class="container">
-        <h1>System Zarządzania Długami</h1>
+  <div class="container">
+    <h1>System Zarządzania Długami</h1>
 
-        <div class="section">
-            <h2>Osoby</h2>
-            <ul id="peopleList">
-                <!-- Osoby będą ładowane z Firestore tutaj -->
-            </ul>
+    <!-- ==== LISTA OSÓB ==== -->
+    <section class="section">
+      <h2>Osoby</h2>
+      <ul id="peopleList"></ul>
+    </section>
+
+    <!-- ==== NOWY DŁUG ==== -->
+    <section class="section">
+      <h2>Utwórz nowy dług</h2>
+      <button id="createDebtBtn">Utwórz dług</button>
+
+      <form id="debtForm" class="hidden">
+        <label for="debtTitle">Tytuł długu</label>
+        <input id="debtTitle" type="text" placeholder="Np. Zakupy spożywcze" required />
+
+        <label for="debtorSelect">Wybierz dłużnika(-ów)</label>
+        <select id="debtorSelect" multiple required></select>
+        <p class="small-text">Przytrzymaj Ctrl/⌘, aby zaznaczyć wielu.</p>
+
+        <h3>Produkty</h3>
+        <div id="productsContainer"></div>
+        <button type="button" id="addProductBtn">Dodaj produkt</button>
+
+        <label for="dueDate">Termin spłaty</label>
+        <input id="dueDate" type="date" required />
+
+        <div class="form-actions">
+          <button type="submit" id="saveDebtBtn">Zapisz dług</button>
+          <button type="button" id="cancelDebtBtn">Anuluj</button>
         </div>
+      </form>
+    </section>
 
-        <div class="section">
-            <h2>Utwórz Nowy Dług</h2>
-            <button id="createDebtButton">Utwórz Dług</button>
+    <!-- ==== AKTYWNE ==== -->
+    <section class="section">
+      <h2>Aktywne długi</h2>
+      <div id="activeDebtsList"></div>
+    </section>
 
-            <div id="debtForm" class="hidden">
-                <label for="debtTitle">Tytuł Długu:</label>
-                <input type="text" id="debtTitle" placeholder="Np. Zakupy spożywcze">
+    <!-- ==== ARCHIWUM ==== -->
+    <section class="section">
+      <h2>Archiwum długów</h2>
+      <div id="archivedDebtsList"></div>
+    </section>
+  </div>
 
-                <label for="debtorSelect">Wybierz Dłużnika:</label>
-                <select id="debtorSelect" multiple>
-                    <!-- Opcje dłużników będą ładowane z Firestore tutaj -->
-                </select>
-                <p class="small-text">Przytrzymaj Ctrl/Cmd aby wybrać wielu dłużników.</p>
-
-                <div id="productsContainer">
-                    <h3>Produkty:</h3>
-                    <!-- Domyślny produkt dodawany przez JS -->
-                </div>
-                <button id="addProductButton">Dodaj Produkt</button>
-
-                <label for="dueDate">Termin Spłaty:</label>
-                <input type="date" id="dueDate">
-
-                <button id="saveDebtButton">Zapisz Dług</button>
-                <button id="cancelDebtButton">Anuluj</button>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2>Aktywne Długi</h2>
-            <div id="activeDebtsList">
-                <!-- Aktywne długi będą ładowane z Firestore tutaj -->
-            </div>
-        </div>
-
-        <div class="section">
-            <h2>Archiwum Długów</h2>
-            <div id="archivedDebtsList">
-                <!-- Zarchiwizowane długi będą ładowane z Firestore tutaj -->
-            </div>
-        </div>
-
-        <div id="receiptModal" class="modal hidden">
-            <div class="modal-content">
-                <!-- USUNIĘTO: <h3 id="receiptModalTitle">Paragon Długu</h3> -->
-                <div id="receiptContent">
-                    <!-- Treść paragonu do wydruku -->
-                </div>
-                <button id="printReceiptButton">Drukuj Paragon</button>
-                <button id="closeReceiptModalButton">Zamknij</button>
-            </div>
-        </div>
+  <!-- ==== MODAL PARAGONU ==== -->
+  <dialog id="receiptModal">
+    <pre id="receiptContent"></pre>
+    <div class="modal-actions">
+      <button id="printReceiptBtn">Drukuj</button>
+      <button id="closeModalBtn">Zamknij</button>
     </div>
+  </dialog>
 
-    <script src="script.js"></script>
+  <!-- Główny skrypt -->
+  <script type="module" src="script.js"></script>
 </body>
 </html>

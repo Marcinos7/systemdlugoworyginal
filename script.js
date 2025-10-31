@@ -1,294 +1,203 @@
-// Konfiguracja Firebase (uzupełnij swoimi danymi)
-const firebaseConfig = {
-    apiKey: "AIzaSyCzvmsNg9FmfL1w-BxdwtO0E-qY0J7V3PM",
-    authDomain: "systemdlugow.firebaseapp.com",
-    projectId: "systemdlugow",
-    storageBucket: "systemdlugow.firebasestorage.app",
-    messagingSenderId: "1094952385361",
-    appId: "1:1094952385361:web:ffb9635d9220b945e33170"
+import {
+  addDoc, collection, doc, getDoc, getDocs,
+  orderBy, query, serverTimestamp, updateDoc
+} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+import { db } from './firebase-init.js';
+
+/* ----------  ZMIENNE DOM ---------- */
+const $ = (sel) => document.querySelector(sel);
+const createBtn  = $('#createDebtBtn');
+const form       = $('#debtForm');
+const cancelBtn  = $('#cancelDebtBtn');
+const saveBtn    = $('#saveDebtBtn');
+const addProdBtn = $('#addProductBtn');
+const productsC  = $('#productsContainer');
+const titleInp   = $('#debtTitle');
+const debtorSel  = $('#debtorSelect');
+const dueDateInp = $('#dueDate');
+const peopleUL   = $('#peopleList');
+const activeDiv  = $('#activeDebtsList');
+const archDiv    = $('#archivedDebtsList');
+const modal      = $('#receiptModal');
+const receiptPre = $('#receiptContent');
+const printBtn   = $('#printReceiptBtn');
+const closeBtn   = $('#closeModalBtn');
+
+/* ----------  UI helpers ---------- */
+const hide = (el) => el.classList.add('hidden');
+const show = (el) => el.classList.remove('hidden');
+
+const resetForm = () => {
+  form.reset();
+  debtorSel.querySelectorAll('option').forEach(o => o.selected = false);
+  productsC.innerHTML = '';
+  addProductField();
 };
-// Inicjalizacja Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
 
-// Referencje do elementów DOM
-const createDebtButton = document.getElementById('createDebtButton');
-const debtForm = document.getElementById('debtForm');
-const cancelDebtButton = document.getElementById('cancelDebtButton');
-const saveDebtButton = document.getElementById('saveDebtButton');
-const addProductButton = document.getElementById('addProductButton');
-const productsContainer = document.getElementById('productsContainer');
-const debtTitleInput = document.getElementById('debtTitle');
-const debtorSelect = document.getElementById('debtorSelect');
-const dueDateInput = document.getElementById('dueDate');
-const peopleList = document.getElementById('peopleList');
-const activeDebtsList = document.getElementById('activeDebtsList');
-const archivedDebtsList = document.getElementById('archivedDebtsList');
-const receiptModal = document.getElementById('receiptModal');
-const receiptContent = document.getElementById('receiptContent');
-const printReceiptButton = document.getElementById('printReceiptButton');
-const closeReceiptModalButton = document.getElementById('closeReceiptModalButton');
-// const receiptModalTitle = document.getElementById('receiptModalTitle'); // USUNIĘTO: Element h3 został usunięty z HTML
+const addProductField = (name = '', price = '') => {
+  const wrap = document.createElement('div');
+  wrap.className = 'product-item';
+  wrap.innerHTML = `
+    <input type="text"  placeholder="Nazwa" value="${name}"  class="p-name" required>
+    <input type="number" placeholder="Cena"  value="${price}" class="p-price" step="0.01" min="0" required>
+    <button type="button" class="remove">✕</button>`;
+  productsC.append(wrap);
+};
 
-
-// ---- Funkcje do zarządzania UI ----
-
-// Pokaż/Ukryj formularz tworzenia długu
-createDebtButton.addEventListener('click', () => {
-    debtForm.classList.remove('hidden');
-    createDebtButton.classList.add('hidden');
-    resetDebtForm(); // Zresetuj formularz przy każdym otwarciu
+productsC.addEventListener('click', (e) => {
+  if (e.target.classList.contains('remove')) {
+    e.target.parentElement.remove();
+    if (!productsC.children.length) addProductField();
+  }
 });
 
-cancelDebtButton.addEventListener('click', () => {
-    debtForm.classList.add('hidden');
-    createDebtButton.classList.remove('hidden');
+/* ----------  Ładowanie danych ---------- */
+const loadPeople = async () => {
+  peopleUL.innerHTML = debtorSel.innerHTML = '';
+  const snap = await getDocs(query(collection(db, 'people'), orderBy('name')));
+  snap.forEach(docu => {
+    const { name } = docu.data();
+
+    peopleUL.insertAdjacentHTML('beforeend', `<li>${name}</li>`);
+    debtorSel.insertAdjacentHTML(
+      'beforeend',
+      `<option value="${docu.id}">${name}</option>`
+    );
+  });
+};
+
+const loadDebts = async () => {
+  activeDiv.innerHTML = archDiv.innerHTML = '';
+  const snap = await getDocs(query(collection(db, 'debts'), orderBy('createdAt', 'desc')));
+
+  for (const docu of snap.docs) {
+    const debt = { id: docu.id, ...docu.data() };
+    await renderDebt(debt);
+  }
+};
+
+const renderDebt = async (debt) => {
+  /* pobieramy imiona osób */
+  const names = [];
+  for (const pid of debt.debtorIds) {
+    const p = await getDoc(doc(db, 'people', pid));
+    names.push(p.exists() ? p.data().name : 'Nieznany');
+  }
+
+  const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
+  const due   = new Date(debt.dueDate).toLocaleDateString('pl-PL');
+
+  const box = document.createElement('div');
+  box.className = 'debt-item' + (debt.isPaid ? ' archived' : '');
+  box.innerHTML = `
+    <div>
+      <strong>${debt.title}</strong><br>
+      Dłużnik(cy): ${names.join(', ')}<br>
+      Suma: ${total} zł<br>
+      Termin spłaty: ${due}
+    </div>
+    <div class="btns"></div>`;
+
+  const btns = box.querySelector('.btns');
+
+  const view = document.createElement('button');
+  view.textContent = 'Paragon';
+  view.onclick = () => openReceipt(debt, names);
+  btns.append(view);
+
+  if (!debt.isPaid) {
+    const pay = document.createElement('button');
+    pay.textContent = 'Opłacony';
+    pay.onclick = () => markAsPaid(debt.id);
+    btns.append(pay);
+  }
+
+  (debt.isPaid ? archDiv : activeDiv).append(box);
+};
+
+/* ----------  CRUD ---------- */
+const markAsPaid = async (id) => {
+  if (!confirm('Oznaczyć dług jako opłacony?')) return;
+  await updateDoc(doc(db, 'debts', id), { isPaid: true });
+  loadDebts();
+};
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const title    = titleInp.value.trim();
+  const debtorIds= [...debtorSel.selectedOptions].map(o => o.value);
+  const dueDate  = dueDateInp.value;
+  const products = [...productsC.children].map(c => ({
+    name:  c.querySelector('.p-name').value.trim(),
+    price: Number(c.querySelector('.p-price').value)
+  })).filter(p => p.name && !isNaN(p.price));
+
+  if (!title || !debtorIds.length || !dueDate || !products.length) {
+    alert('Uzupełnij wszystkie wymagane pola.');
+    return;
+  }
+
+  await addDoc(collection(db, 'debts'), {
+    title, debtorIds, products, dueDate,
+    isPaid: false,
+    createdAt: serverTimestamp()
+  });
+
+  hide(form); show(createBtn);
+  resetForm();
+  loadDebts();
 });
 
-// Dodawanie/usuwanie pól produktów w formularzu
-addProductButton.addEventListener('click', () => {
-    addProductField();
-});
+/* ----------  Modal ---------- */
+const openReceipt = (debt, names=[]) => {
+  const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
+  const issued = debt.createdAt?.toDate?.() ? debt.createdAt.toDate() : new Date();
+  const due    = new Date(debt.dueDate);
 
-productsContainer.addEventListener('click', (event) => {
-    if (event.target.classList.contains('remove-product-btn')) {
-        event.target.closest('.product-item').remove();
-        // Jeśli usunięto wszystkie pola produktów, dodaj jedno puste, aby zawsze było minimum 1
-        if (productsContainer.querySelectorAll('.product-item').length === 0) {
-            addProductField();
-        }
-    }
-});
-
-function addProductField(productName = '', productPrice = '') {
-    const productItem = document.createElement('div');
-    productItem.classList.add('product-item');
-    productItem.innerHTML = `
-        <input type="text" class="product-name" placeholder="Nazwa produktu" value="${productName}">
-        <input type="number" class="product-price" placeholder="Cena" step="0.01">
-        <button type="button" class="remove-product-btn">Usuń</button>
-    `;
-    productsContainer.appendChild(productItem);
-}
-
-function resetDebtForm() {
-    debtTitleInput.value = '';
-    // Odznacza wszystkie opcje w selekcie
-    Array.from(debtorSelect.options).forEach(option => {
-        option.selected = false;
-    });
-    dueDateInput.value = '';
-    productsContainer.innerHTML = '<h3>Produkty:</h3>'; // Usuń stare produkty
-    addProductField(); // Dodaj jedno puste pole produktu
-}
-
-
-// ---- Funkcje do Firebase (do zaimplementowania) ----
-
-// Ładowanie osób z bazy danych
-async function loadPeople() {
-    peopleList.innerHTML = '';
-    debtorSelect.innerHTML = ''; // Wyczyść select przed ponownym załadowaniem
-    try {
-        const snapshot = await db.collection('people').orderBy('name').get();
-        snapshot.forEach(doc => {
-            const person = doc.data();
-            const li = document.createElement('li');
-            li.textContent = person.name;
-            peopleList.appendChild(li);
-
-            const option = document.createElement('option');
-            option.value = doc.id; // Użyj ID dokumentu jako wartości
-            option.textContent = person.name;
-            debtorSelect.appendChild(option);
-        });
-    } catch (error) {
-        console.error("Błąd podczas ładowania osób: ", error);
-    }
-}
-
-// Ładowanie długów
-async function loadDebts() {
-    activeDebtsList.innerHTML = '';
-    archivedDebtsList.innerHTML = '';
-
-    try {
-        const snapshot = await db.collection('debts').orderBy('createdAt', 'desc').get();
-        snapshot.forEach(doc => {
-            const debt = { id: doc.id, ...doc.data() };
-            displayDebt(debt);
-        });
-    } catch (error) {
-        console.error("Błąd podczas ładowania długów: ", error);
-    }
-}
-
-// Wyświetlanie pojedynczego długu
-function displayDebt(debt) {
-    const debtItem = document.createElement('div');
-    debtItem.classList.add('debt-item');
-    if (debt.isPaid) {
-        debtItem.classList.add('archived');
-    }
-
-    // Pobierz nazwy dłużników
-    const debtorNamesPromises = debt.debtorIds.map(async id => {
-        const personDoc = await db.collection('people').doc(id).get();
-        return personDoc.exists ? personDoc.data().name : 'Nieznany';
-    });
-
-    Promise.all(debtorNamesPromises).then(names => {
-        const totalAmount = debt.products.reduce((sum, p) => sum + parseFloat(p.price), 0).toFixed(2);
-        const dueDate = new Date(debt.dueDate).toLocaleDateString();
-
-        debtItem.innerHTML = `
-            <div>
-                <strong>${debt.title}</strong><br>
-                Dłużnik(cy): ${names.join(', ')}<br>
-                Suma: ${totalAmount} zł<br>
-                Termin spłaty: ${dueDate}
-            </div>
-        `;
-
-        if (!debt.isPaid) {
-            const payButton = document.createElement('button');
-            payButton.textContent = 'Dług Opłacony';
-            payButton.addEventListener('click', () => markDebtAsPaid(debt.id));
-            debtItem.appendChild(payButton);
-        }
-
-        const viewReceiptButton = document.createElement('button');
-        viewReceiptButton.textContent = 'Podgląd Paragonu';
-        viewReceiptButton.addEventListener('click', () => showReceiptModal(debt));
-        debtItem.appendChild(viewReceiptButton);
-
-        if (debt.isPaid) {
-            archivedDebtsList.appendChild(debtItem);
-        } else {
-            activeDebtsList.appendChild(debtItem);
-        }
-    });
-}
-
-// Zapisywanie nowego długu
-saveDebtButton.addEventListener('click', async () => {
-    const title = debtTitleInput.value.trim();
-    const selectedDebtorOptions = Array.from(debtorSelect.selectedOptions);
-    const debtorIds = selectedDebtorOptions.map(option => option.value);
-    const dueDate = dueDateInput.value;
-    const products = [];
-
-    document.querySelectorAll('.product-item').forEach(item => {
-        const name = item.querySelector('.product-name').value.trim();
-        const price = item.querySelector('.product-price').value.trim();
-        if (name && price && !isNaN(parseFloat(price))) { // Dodatkowa walidacja ceny
-            products.push({ name, price: parseFloat(price) });
-        }
-    });
-
-    if (!title || debtorIds.length === 0 || !dueDate || products.length === 0) {
-        alert('Proszę wypełnić wszystkie pola: tytuł, dłużnik, termin spłaty i przynajmniej jeden produkt z ceną.');
-        return;
-    }
-
-    try {
-        const newDebt = {
-            title,
-            debtorIds,
-            products,
-            dueDate,
-            isPaid: false,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp() // Znacznik czasu utworzenia
-        };
-        await db.collection('debts').add(newDebt);
-        alert('Dług został zapisany!');
-        debtForm.classList.add('hidden');
-        createDebtButton.classList.remove('hidden');
-        loadDebts(); // Odśwież listę długów
-    } catch (error) {
-        console.error("Błąd podczas zapisywania długu: ", error);
-        alert('Wystąpił błąd podczas zapisywania długu.');
-    }
-});
-
-
-// Oznaczanie długu jako opłaconego
-async function markDebtAsPaid(debtId) {
-    if (confirm('Czy na pewno chcesz oznaczyć ten dług jako opłacony?')) {
-        try {
-            await db.collection('debts').doc(debtId).update({ isPaid: true });
-            alert('Dług oznaczony jako opłacony!');
-            loadDebts(); // Odśwież listę długów
-        } catch (error) {
-            console.error("Błąd podczas oznaczania długu jako opłaconego: ", error);
-            alert('Wystąpił błąd podczas oznaczania długu jako opłaconego.');
-        }
-    }
-}
-
-// Generowanie treści paragonu i wyświetlanie modalu
-async function showReceiptModal(debt) {
-    // Pobierz nazwy dłużników
-    const debtorNames = await Promise.all(debt.debtorIds.map(async id => {
-        const personDoc = await db.collection('people').doc(id).get();
-        return personDoc.exists ? personDoc.data().name : 'Nieznany';
-    }));
-
-    const totalAmount = debt.products.reduce((sum, p) => sum + parseFloat(p.price), 0).toFixed(2);
-    const createdAtDate = debt.createdAt && typeof debt.createdAt.toDate === 'function'
-                          ? new Date(debt.createdAt.toDate()).toLocaleString()
-                          : 'N/A';
-    const dueDate = new Date(debt.dueDate).toLocaleDateString();
-
-    // Konstruujemy cały paragon jako czysty tekst w formacie <pre>
-    let receiptText = `
+  let txt = `
 ----------------------------------------
               PARAGON DŁUGU
-       NR: ${debt.id.substring(0, 8)}
+       NR: ${debt.id.slice(0,8)}
 ----------------------------------------
-Data Wystawienia: ${createdAtDate}
+Data wystawienia: ${issued.toLocaleString('pl-PL')}
 
 Tytuł: ${debt.title}
-Dłużnik(cy): ${debtorNames.join(', ')}
+Dłużnik(cy): ${names.join(', ')}
 
 ----------------------------------------
 PRODUKTY:
 `;
-    debt.products.forEach(p => {
-        receiptText += `${p.name.padEnd(25)} ${p.price.toFixed(2).padStart(8)} zł\n`;
-    });
+  debt.products.forEach(p => {
+    txt += `${p.name.padEnd(24)} ${p.price.toFixed(2).padStart(8)} zł\n`;
+  });
 
-    receiptText += `
+  txt += `
 ----------------------------------------
-SUMA CAŁKOWITA:            ${totalAmount.padStart(8)} zł
-TERMIN SPŁATY: ${dueDate}
+SUMA:                     ${total.padStart(8)} zł
+Termin spłaty: ${due.toLocaleDateString('pl-PL')}
 ----------------------------------------
 Status: ${debt.isPaid ? 'OPŁACONY' : 'NIEOPŁACONY'}
 ----------------------------------------
-        Dziękujemy za Spłatę!
-----------------------------------------
-`;
-    // Ustawiamy innerHTML elementu receiptContent bezpośrednio na ten tekst
-    receiptContent.innerHTML = receiptText; // Bez tagu <pre> tutaj, bo receiptContent już stylizuje jako pre
-    receiptModal.classList.remove('hidden'); // POKAŻ MODAL
-}
+  Dziękujemy za terminową spłatę!
+----------------------------------------`;
 
-// Funkcje modala paragonu
-printReceiptButton.addEventListener('click', () => {
-    window.print();
-});
+  receiptPre.textContent = txt;
+  modal.showModal();
+};
 
-closeReceiptModalButton.addEventListener('click', () => {
-    receiptModal.classList.add('hidden'); // UKRYJ MODAL
-});
+printBtn.onclick = () => window.print();
+closeBtn.onclick = () => modal.close();
 
+/* ----------  Przyciski formularza ---------- */
+createBtn.onclick = () => { show(form); hide(createBtn); resetForm(); };
+cancelBtn.onclick = () => { hide(form); show(createBtn); };
 
-// ---- Inicjalizacja ----
-document.addEventListener('DOMContentLoaded', () => {
-    loadPeople();
-    loadDebts();
+/* ----------  Init ---------- */
+addProdBtn.onclick = () => addProductField();
 
-    // Dodaj domyślne pole produktu (na początku)
-    addProductField();
-    resetDebtForm(); // Upewnij się, że formularz jest czysty i ukryty na starcie
+document.addEventListener('DOMContentLoaded', async () => {
+  resetForm();
+  await loadPeople();
+  await loadDebts();
 });
