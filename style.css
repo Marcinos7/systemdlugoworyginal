@@ -161,7 +161,7 @@ dialog{
     font-size:0.8em; /* ZMNIEJSZAMY CZCIONKĘ, aby tekst się zmieścił na 80mm */
     font-weight: normal; /* Można zmniejszyć grubość, aby zajmował mniej miejsca */
     line-height: 1.2; /* Mniejsze odstępy między liniami */
-    width: 80%; /* Upewniamy się, że PRE zajmuje całą szerokość rodzica */
+    width: 100%; /* Upewniamy się, że PRE zajmuje całą szerokość rodzica */
     box-sizing: border-box; /* padding/border wliczane w width */
     padding: 0 2mm; /* Drobne marginesy boczne, żeby tekst nie dochodził do samej krawędzi */
     page-break-inside:avoid;
@@ -176,6 +176,6 @@ dialog{
   dialog{width:95vw}
   #receiptModal,
   #paymentConfirmModal{
-    width:90vw; /* Drobna korekta dla małych ekranów, żeby modal nie był zbyt szeroki */
+    width:95vw; /* Drobna korekta dla małych ekranów, żeby modal nie był zbyt szeroki */
   }
-}
+} 
