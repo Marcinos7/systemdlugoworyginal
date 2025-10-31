@@ -17,7 +17,7 @@ import { db } from './firebase-init.js';
 /* ----------  EMAILJS KONFIGURACJA (UZUPEŁNIJ SWOIMI DANYMI) ---------- */
 const EMAILJS_CONFIG = {
     // Service ID z EmailJS (np. service_123abc) - znajdziesz w Email Services > Twoja usługa > Service ID
-    SERVICE_ID: 'YOUR_EMAILJS_SERVICE_ID', // <--- Pamiętaj, aby to ZAMIENIĆ na swoje Service ID!
+    SERVICE_ID: 'service_i86iyj3', // <--- Pamiętaj, aby to ZAMIENIĆ na swoje Service ID!
     // Template ID dla nowego długu
     TEMPLATE_NEW_DEBT: 'template_2orr235',     
     // Template ID dla opłaconego długu
