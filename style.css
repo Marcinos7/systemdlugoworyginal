@@ -152,28 +152,11 @@ button:hover {
     font-size: 1.1em; /* Zwiększony rozmiar czcionki */
     font-weight: bold; /* Cały tekst paragonu jest pogrubiony */
     line-height: 1.4; /* Odstęp między liniami */
-    padding: 10px 0; /* Bez ramki, tylko padding */
-    margin-bottom: 15px;
+    padding: 0; /* USUNIĘTO RAMKĘ I PADDING Z MODALA */
+    margin-bottom: 0; /* ZEROWANIE MARGINESÓW */
 }
 
-/* Możemy delikatnie powiększyć i wycentrować tytuł wewnątrz pre, jeśli chcemy */
-#receiptContent .receipt-title-line {
-    font-size: 1.2em; /* Minimalnie większy */
-    font-weight: bolder; /* Jeszcze grubszy */
-    text-align: center;
-    display: block; /* Upewnij się, że jest blokiem dla text-align */
-    margin-bottom: 5px;
-}
-
-#receiptContent .receipt-status-line {
-    font-size: 1.1em;
-    font-weight: bolder;
-    text-align: center;
-    display: block;
-    margin-top: 10px;
-}
-
-
+/* W przypadku wydruku */
 @media print {
     body * {
         visibility: hidden;
@@ -188,17 +171,16 @@ button:hover {
         width: 100%;
         height: auto;
         background: none;
+        box-shadow: none; /* Upewnij się, że nie ma cienia na wydruku */
     }
     .modal-content {
         width: 80mm;
-        box-shadow: none;
+        box-shadow: none; /* Upewnij się, że nie ma cienia na wydruku */
         margin: 0;
         padding: 0;
     }
     button {
         display: none; /* Ukryj przyciski w druku */
     }
-    #receiptModalTitle { /* Ukryj tytuł "Paragon Długu" w podglądzie druku */
-        display: none;
-    }
+    /* Nie ma już elementu h3 o id receiptModalTitle, więc nie trzeba go ukrywać */
 }

@@ -28,7 +28,7 @@ const receiptModal = document.getElementById('receiptModal');
 const receiptContent = document.getElementById('receiptContent');
 const printReceiptButton = document.getElementById('printReceiptButton');
 const closeReceiptModalButton = document.getElementById('closeReceiptModalButton');
-const receiptModalTitle = document.getElementById('receiptModalTitle'); // Referencja do nowego tytułu modala
+// const receiptModalTitle = document.getElementById('receiptModalTitle'); // USUNIĘTO: Element h3 został usunięty z HTML
 
 
 // ---- Funkcje do zarządzania UI ----
@@ -65,7 +65,7 @@ function addProductField(productName = '', productPrice = '') {
     productItem.classList.add('product-item');
     productItem.innerHTML = `
         <input type="text" class="product-name" placeholder="Nazwa produktu" value="${productName}">
-        <input type="number" class="product-price" placeholder="Cena" step="0.01" value="${productPrice}">
+        <input type="number" class="product-price" placeholder="Cena" step="0.01">
         <button type="button" class="remove-product-btn">Usuń</button>
     `;
     productsContainer.appendChild(productItem);
@@ -240,11 +240,10 @@ async function showReceiptModal(debt) {
                           : 'N/A';
     const dueDate = new Date(debt.dueDate).toLocaleDateString();
 
-    // Konstruujemy HTML paragonu w całości wewnątrz jednego <pre>
-    // Używamy spacji i znaków specjalnych do formatowania
+    // Konstruujemy cały paragon jako czysty tekst w formacie <pre>
     let receiptText = `
 ----------------------------------------
-       PARAGON DŁUGU
+              PARAGON DŁUGU
        NR: ${debt.id.substring(0, 8)}
 ----------------------------------------
 Data Wystawienia: ${createdAtDate}
@@ -256,7 +255,6 @@ Dłużnik(cy): ${debtorNames.join(', ')}
 PRODUKTY:
 `;
     debt.products.forEach(p => {
-        // padEnd i padStart do wyrównania tekstu
         receiptText += `${p.name.padEnd(25)} ${p.price.toFixed(2).padStart(8)} zł\n`;
     });
 
@@ -270,8 +268,8 @@ Status: ${debt.isPaid ? 'OPŁACONY' : 'NIEOPŁACONY'}
         Dziękujemy za Spłatę!
 ----------------------------------------
 `;
-    // Ustawiamy innerHTML elementu receiptContent, który ma style dla <pre>
-    receiptContent.innerHTML = `<pre>${receiptText}</pre>`;
+    // Ustawiamy innerHTML elementu receiptContent bezpośrednio na ten tekst
+    receiptContent.innerHTML = receiptText; // Bez tagu <pre> tutaj, bo receiptContent już stylizuje jako pre
     receiptModal.classList.remove('hidden'); // POKAŻ MODAL
 }
 
