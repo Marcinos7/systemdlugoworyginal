@@ -1,0 +1,182 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+h1, h2, h3 {
+    color: #0056b3;
+}
+
+.section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+label {
+    display: block;
+    margin-top: 10px;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select {
+    width: calc(100% - 22px);
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+select[multiple] {
+    height: 100px;
+}
+
+button {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-right: 10px;
+    margin-top: 10px;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+.product-item {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.product-item input {
+    flex-grow: 1;
+    margin-bottom: 0;
+}
+
+.product-item .remove-product-btn {
+    background-color: #dc3545;
+    margin-top: 0;
+    padding: 8px 12px;
+}
+
+.product-item .remove-product-btn:hover {
+    background-color: #c82333;
+}
+
+.debt-item {
+    background-color: #e9ecef;
+    border: 1px solid #dee2e6;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.debt-item.archived {
+    background-color: #f8f9fa;
+    color: #6c757d;
+}
+
+.debt-item div {
+    flex-grow: 1;
+}
+
+.debt-item button {
+    margin-left: 10px;
+    white-space: nowrap;
+    margin-top: 0;
+}
+
+.hidden {
+    display: none;
+}
+
+.small-text {
+    font-size: 0.8em;
+    color: #666;
+    margin-top: -5px;
+    margin-bottom: 10px;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    width: 80mm; /* Szerokość paragonu */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    text-align: center;
+}
+
+#receiptContent {
+    text-align: left;
+    white-space: pre-wrap; /* Zachowanie formatowania paragonu */
+    font-family: 'Courier New', Courier, monospace; /* Czcionka jak na paragonie */
+    font-size: 0.9em;
+    line-height: 1.4;
+    border: 1px dashed #ccc;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #receiptModal, #receiptModal * {
+        visibility: visible;
+    }
+    #receiptModal {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: auto;
+        background: none;
+    }
+    .modal-content {
+        width: 80mm;
+        box-shadow: none;
+        margin: 0;
+        padding: 0;
+    }
+    button {
+        display: none; /* Ukryj przyciski w druku */
+    }
+}
