@@ -1,6 +1,3 @@
-/* --------------------------------------------------------------
-   Skrypt aplikacji – wszystko uruchamiane po DOMContentLoaded
-   -------------------------------------------------------------- */
 import {
   addDoc,
   collection,
@@ -16,15 +13,15 @@ import { db } from './firebase-init.js';
 
 /* ----------  EMAILJS KONFIGURACJA ---------- */
 const EMAILJS_CONFIG = {
-    SERVICE_ID: 'service_i86iyj3', 
-    TEMPLATE_NEW_DEBT: 'template_2orr235',     
-    TEMPLATE_PAID_DEBT: 'template_48jy2ur'        
+    SERVICE_ID: 'service_i86iyj3', // TWÓJ SERVICE ID
+    TEMPLATE_NEW_DEBT: 'template_2orr235',
+    TEMPLATE_PAID_DEBT: 'template_48jy2ur'
 };
 
 /* ----------  Pomocnicza funkcja selektora ---------- */
 const $ = (sel) => document.querySelector(sel);
 
-/* ----------  Zmienne (zostaną zainicjalizowane po DOMReady) ---------- */
+/* ----------  Zmienne DOM ---------- */
 let createBtn, form, cancelBtn, saveBtn, addProdBtn, productsC,
     titleInp, debtorSel, dueDateInp,
     peopleUL, activeDiv, archDiv,
@@ -57,9 +54,7 @@ function addProductField(name = '', price = '') {
   productsC.appendChild(wrapper);
 }
 
-/* --------------------------------------------------------------
-   FUNKCJA WYSYŁANIA EMAILA (EmailJS)
-   -------------------------------------------------------------- */
+/* ----------  WYSYŁKA EMAILI ---------- */
 async function sendNotificationEmail(templateId, debtData, method = null, debtId = null) {
     const total = debtData.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
     const orderId = debtId ? debtId.slice(0, 8).toUpperCase() : 'N/A';
@@ -67,41 +62,30 @@ async function sendNotificationEmail(templateId, debtData, method = null, debtId
     for (const pid of debtData.debtorIds) {
         const pDoc = await getDoc(doc(db, 'people', pid));
         if (pDoc.exists() && pDoc.data().email) {
-            const debtorEmail = pDoc.data().email;
-            const debtorName = pDoc.data().name;
-            
-            let emailParams = {
-                to_email: debtorEmail,
-                to_name: debtorName,
-                order_id: orderId
+            const emailParams = {
+                to_email: pDoc.data().email,
+                to_name: pDoc.data().name,
+                order_id: orderId,
+                name: debtData.title,
+                units: debtData.products.length,
+                price: total,
+                'cost.tax': '0.00',
+                'cost.total': total,
+                payment_method: method || 'N/A',
+                payment_date: method ? new Date().toLocaleDateString('pl-PL') : 'N/A'
             };
-
-            if (templateId === EMAILJS_CONFIG.TEMPLATE_NEW_DEBT) {
-                emailParams = {
-                    ...emailParams,
-                    name: debtData.title,
-                    units: debtData.products.length,
-                    price: total,
-                    'cost.tax': '0.00',
-                    'cost.total': total
-                };
-            }
 
             try {
                 await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, emailParams);
-                console.log(`✅ Email '${templateId}' wysłany do ${debtorName} (${debtorEmail})`);
+                console.log(`✅ Email wysłany do ${pDoc.data().name}`);
             } catch (error) {
-                console.error(`❌ Błąd wysyłki emaila '${templateId}' do ${debtorName} (${debtorEmail}):`, error);
+                console.error(`❌ Błąd wysyłki do ${pDoc.data().name}:`, error);
             }
-        } else {
-            console.warn(`⚠️ Brak emaila dla dłużnika ${pDoc.exists() ? pDoc.data().name : pid}. Nie wysłano emaila.`);
         }
     }
 }
 
-/* --------------------------------------------------------------
-   ŁADOWANIE DANYCH Z FIRESTORE
-   -------------------------------------------------------------- */
+/* ----------  ŁADOWANIE DANYCH ---------- */
 async function loadPeople() {
   peopleUL.innerHTML = '';
   debtorSel.innerHTML = '';
@@ -109,14 +93,8 @@ async function loadPeople() {
   const snap = await getDocs(query(collection(db, 'people'), orderBy('name')));
   snap.forEach(docu => {
     const data = docu.data();
-    const name = data.name;
-    const email = data.email || 'Brak emaila';
-
-    peopleUL.insertAdjacentHTML('beforeend', `<li>${name} <small>(${email})</small></li>`);
-    debtorSel.insertAdjacentHTML(
-      'beforeend',
-      `<option value="${docu.id}">${name}</option>`
-    );
+    peopleUL.insertAdjacentHTML('beforeend', `<li>${data.name} <small>(${data.email || 'Brak emaila'})</small></li>`);
+    debtorSel.insertAdjacentHTML('beforeend', `<option value="${docu.id}">${data.name}</option>`);
   });
 }
 
@@ -139,7 +117,7 @@ async function renderDebt(debt) {
   }
 
   const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
-  const due   = new Date(debt.dueDate).toLocaleDateString('pl-PL');
+  const due = new Date(debt.dueDate).toLocaleDateString('pl-PL');
 
   const box = document.createElement('div');
   box.className = 'debt-item' + (debt.isPaid ? ' archived' : '');
@@ -164,7 +142,6 @@ async function renderDebt(debt) {
   `;
 
   const btns = box.querySelector('.btns');
-
   const viewBtn = document.createElement('button');
   viewBtn.textContent = 'Paragon';
   viewBtn.addEventListener('click', () => openReceipt(debt, debtorNames));
@@ -180,11 +157,9 @@ async function renderDebt(debt) {
   (debt.isPaid ? archDiv : activeDiv).appendChild(box);
 }
 
-/* --------------------------------------------------------------
-   OBSŁUGA PŁATNOŚCI
-   -------------------------------------------------------------- */
+/* ----------  PŁATNOŚCI ---------- */
 function initiatePayment(debtId, debtData, debtorNames) {
-  pendingPaymentDebtId   = debtId;
+  pendingPaymentDebtId = debtId;
   pendingPaymentDebtData = { ...debtData, debtorNames };
   paymentModal.showModal();
 }
@@ -193,7 +168,6 @@ async function processPayment(method) {
   if (!pendingPaymentDebtId) return;
 
   const now = new Date();
-
   await updateDoc(doc(db, 'debts', pendingPaymentDebtId), {
     isPaid: true,
     paymentMethod: method === 'cash' ? 'Gotówka' : 'Przelew',
@@ -207,23 +181,13 @@ async function processPayment(method) {
     pendingPaymentDebtId
   );
 
-  generatePaymentConfirmation(
-    pendingPaymentDebtId,
-    pendingPaymentDebtData,
-    method,
-    now
-  );
-
+  generatePaymentConfirmation(pendingPaymentDebtId, pendingPaymentDebtData, method, now);
   paymentModal.close();
   loadDebts();
 }
 
-/* SKRÓCONE FORMATOWANIE DLA 80MM */
 function generatePaymentConfirmation(id, debt, method, date) {
   const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
-  const methodTxt = method === 'cash' ? 'GOTÓWKA' : 'PRZELEW';
-
-  // SKRÓCONE LINIE - 30 znaków zamiast 40
   const txt = `
 ==============================
     POTWIERDZENIE OPŁATY
@@ -234,30 +198,25 @@ DATA: ${date.toLocaleDateString('pl-PL')}
 GODZ: ${date.toLocaleTimeString('pl-PL')}
 ------------------------------
 TYTUŁ: ${debt.title}
-DŁUŻNIK: 
-${debt.debtorNames.join('\n')}
+DŁUŻNIK: ${debt.debtorNames.join(', ')}
 
-METODA: ${methodTxt}
+METODA: ${method === 'cash' ? 'GOTÓWKA' : 'PRZELEW'}
 KWOTA: ${total} ZŁ
 ------------------------------
 STATUS: ✓ OPŁACONY
 ==============================
   Dziękujemy za płatność!
 ==============================`;
-
+  
   paymentConfirmContent.textContent = txt;
   paymentConfirmModal.showModal();
-
-  setTimeout(() => window.print(), 500);
 }
 
-/* SKRÓCONE FORMATOWANIE DLA 80MM */
 function openReceipt(debt, debtorNames = []) {
-  const total   = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
+  const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
   const created = debt.createdAt?.toDate?.() ? debt.createdAt.toDate() : new Date();
-  const due     = new Date(debt.dueDate);
+  const due = new Date(debt.dueDate);
 
-  // SKRÓCONE LINIE - 30 znaków zamiast 40
   let txt = `
 ==============================
       PARAGON DŁUGU
@@ -275,9 +234,7 @@ PRODUKTY:
 ------------------------------
 `;
 
-  // Uproszczone formatowanie produktów - bez padding
   debt.products.forEach(p => {
-    // Jeśli nazwa jest długa, zawijamy ją
     if (p.name.length > 18) {
       txt += `${p.name.substring(0, 18)}...\n`;
       txt += `         ${Number(p.price).toFixed(2)} zł\n`;
@@ -305,35 +262,32 @@ paragonu metodami:
   receiptModal.showModal();
 }
 
-/* --------------------------------------------------------------
-   INICJALIZACJA – wszystko po załadowaniu DOM
-   -------------------------------------------------------------- */
+/* ----------  INICJALIZACJA ---------- */
 document.addEventListener('DOMContentLoaded', async () => {
-  createBtn               = $('#createDebtBtn');
-  form                    = $('#debtForm');
-  cancelBtn               = $('#cancelDebtBtn');
-  saveBtn                 = $('#saveDebtBtn');
-  addProdBtn              = $('#addProductBtn');
-  productsC               = $('#productsContainer');
-  titleInp                = $('#debtTitle');
-  debtorSel               = $('#debtorSelect');
-  dueDateInp              = $('#dueDate');
-  peopleUL                = $('#peopleList');
-  activeDiv               = $('#activeDebtsList');
-  archDiv                 = $('#archivedDebtsList');
-  receiptModal            = $('#receiptModal');
-  receiptPre              = $('#receiptContent');
-  printBtn                = $('#printReceiptBtn');
-  closeBtn                = $('#closeModalBtn');
-
-  paymentModal            = $('#paymentModal');
-  paymentCash             = $('#paymentCash');
-  paymentTransfer         = $('#paymentTransfer');
-  cancelPaymentBtn        = $('#cancelPaymentBtn');
-  paymentConfirmModal     = $('#paymentConfirmModal');
-  paymentConfirmContent   = $('#paymentConfirmContent');
-  printConfirmBtn         = $('#printConfirmBtn');
-  closeConfirmBtn         = $('#closeConfirmBtn');
+  createBtn = $('#createDebtBtn');
+  form = $('#debtForm');
+  cancelBtn = $('#cancelDebtBtn');
+  saveBtn = $('#saveDebtBtn');
+  addProdBtn = $('#addProductBtn');
+  productsC = $('#productsContainer');
+  titleInp = $('#debtTitle');
+  debtorSel = $('#debtorSelect');
+  dueDateInp = $('#dueDate');
+  peopleUL = $('#peopleList');
+  activeDiv = $('#activeDebtsList');
+  archDiv = $('#archivedDebtsList');
+  receiptModal = $('#receiptModal');
+  receiptPre = $('#receiptContent');
+  printBtn = $('#printReceiptBtn');
+  closeBtn = $('#closeModalBtn');
+  paymentModal = $('#paymentModal');
+  paymentCash = $('#paymentCash');
+  paymentTransfer = $('#paymentTransfer');
+  cancelPaymentBtn = $('#cancelPaymentBtn');
+  paymentConfirmModal = $('#paymentConfirmModal');
+  paymentConfirmContent = $('#paymentConfirmContent');
+  printConfirmBtn = $('#printConfirmBtn');
+  closeConfirmBtn = $('#closeConfirmBtn');
 
   productsC.addEventListener('click', (e) => {
     if (e.target.classList.contains('remove')) {
@@ -343,63 +297,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   addProdBtn.addEventListener('click', () => addProductField());
-
-  createBtn.addEventListener('click', () => {
-    show(form);
-    hide(createBtn);
-    resetForm();
-  });
-
-  cancelBtn.addEventListener('click', () => {
-    hide(form);
-    show(createBtn);
-  });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const title     = titleInp.value.trim();
-    const debtorIds = [...debtorSel.selectedOptions].map(o => o.value);
-    const dueDate   = dueDateInp.value;
-    const products  = [...productsC.children].map(c => ({
-      name:  c.querySelector('.p-name').value.trim(),
-      price: Number(c.querySelector('.p-price').value)
-    })).filter(p => p.name && !isNaN(p.price));
-
-    if (!title || !debtorIds.length || !dueDate || !products.length) {
-      alert('Uzupełnij wszystkie wymagane pola.');
-      return;
-    }
-
-    const newDebt = {
-      title,
-      debtorIds,
-      products,
-      dueDate,
-      isPaid: false
-    };
-
-    const docRef = await addDoc(collection(db, 'debts'), {
-      ...newDebt,
-      createdAt: serverTimestamp()
-    });
-
-    await sendNotificationEmail(
-      EMAILJS_CONFIG.TEMPLATE_NEW_DEBT,
-      newDebt,
-      null,
-      docRef.id
-    );
-
-    hide(form);
-    show(createBtn);
-    resetForm();
-    loadDebts();
-  });
-
-  printBtn.addEventListener('click', () => window.print());
+  createBtn.addEventListener('click', () => { show(form); hide(createBtn); resetForm(); });
+  cancelBtn.addEventListener('click', () => { hide(form); show(createBtn); });
   closeBtn.addEventListener('click', () => receiptModal.close());
-
+  closeConfirmBtn.addEventListener('click', () => paymentConfirmModal.close());
+  printBtn.addEventListener('click', () => window.print());
+  printConfirmBtn.addEventListener('click', () => window.print());
   paymentCash.addEventListener('click', () => processPayment('cash'));
   paymentTransfer.addEventListener('click', () => processPayment('transfer'));
   cancelPaymentBtn.addEventListener('click', () => {
@@ -408,8 +311,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     pendingPaymentDebtData = null;
   });
 
-  printConfirmBtn.addEventListener('click', () => window.print());
-  closeConfirmBtn.addEventListener('click', () => paymentConfirmModal.close());
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = titleInp.value.trim();
+    const debtorIds = [...debtorSel.selectedOptions].map(o => o.value);
+    const dueDate = dueDateInp.value;
+    const products = [...productsC.children].map(c => ({
+      name: c.querySelector('.p-name').value.trim(),
+      price: Number(c.querySelector('.p-price').value)
+    })).filter(p => p.name && !isNaN(p.price));
+
+    if (!title || !debtorIds.length || !dueDate || !products.length) {
+      alert('Uzupełnij wszystkie pola.');
+      return;
+    }
+
+    const newDebt = { title, debtorIds, products, dueDate, isPaid: false };
+    const docRef = await addDoc(collection(db, 'debts'), {
+      ...newDebt,
+      createdAt: serverTimestamp()
+    });
+
+    await sendNotificationEmail(EMAILJS_CONFIG.TEMPLATE_NEW_DEBT, newDebt, null, docRef.id);
+    hide(form);
+    show(createBtn);
+    resetForm();
+    loadDebts();
+  });
 
   await loadPeople();
   await loadDebts();
