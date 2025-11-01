@@ -15,7 +15,7 @@ const $ = (sel) => document.querySelector(sel);
 let createBtn, form, cancelBtn, saveBtn, addProdBtn, productsC,
     titleInp, debtorSel, dueDateInp,
     peopleUL, activeDiv, archDiv,
-    receiptModal, receiptPre, printBtn, closeBtn,
+    receiptModal, receiptContent, printBtn, closeBtn,
     paymentModal, paymentCash, paymentTransfer, cancelPaymentBtn,
     paymentConfirmModal, paymentConfirmContent, printConfirmBtn, closeConfirmBtn;
 
@@ -173,77 +173,93 @@ async function processPayment(method) {
 
 function generatePaymentConfirmation(id, debt, method, date) {
   const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
-  const txt = `
-==============================
-    POTWIERDZENIE OPŁATY
-==============================
+  const txt = `POTWIERDZENIE OPŁATY
 NR DŁUGU: ${id.slice(0, 8).toUpperCase()}
-
 DATA: ${date.toLocaleDateString('pl-PL')}
 GODZ: ${date.toLocaleTimeString('pl-PL')}
-------------------------------
 TYTUŁ: ${debt.title}
 DŁUŻNIK: ${debt.debtorNames.join(', ')}
-
 METODA: ${method === 'cash' ? 'GOTÓWKA' : 'PRZELEW'}
 KWOTA: ${total} ZŁ
-------------------------------
-STATUS: ✓ OPŁACONY
-==============================
-  Dziękujemy za płatność!
-==============================`;
+STATUS: ✓ OPŁACONY`;
   
   paymentConfirmContent.textContent = txt;
   paymentConfirmModal.showModal();
 }
 
+// NOWA FUNKCJA - TABELOWY PARAGON
 function openReceipt(debt, debtorNames = []) {
   const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
   const created = debt.createdAt?.toDate?.() ? debt.createdAt.toDate() : new Date();
   const due = new Date(debt.dueDate);
 
-  let txt = `
-==============================
-      PARAGON DŁUGU
-   NR: ${debt.id.slice(0,8).toUpperCase()}
-==============================
-Data: ${created.toLocaleDateString('pl-PL')}
-Godz: ${created.toLocaleTimeString('pl-PL')}
-
-Tytuł: ${debt.title}
-
-Dłużnik(cy):
-${debtorNames.join('\n')}
-------------------------------
-PRODUKTY:
-------------------------------
-`;
-
+  // Generuj HTML tabeli
+  let productsTable = '';
   debt.products.forEach(p => {
-    if (p.name.length > 18) {
-      txt += `${p.name.substring(0, 18)}...\n`;
-      txt += `         ${Number(p.price).toFixed(2)} zł\n`;
-    } else {
-      txt += `${p.name}\n`;
-      txt += `         ${Number(p.price).toFixed(2)} zł\n`;
-    }
+    productsTable += `
+      <tr>
+        <td>${p.name}</td>
+        <td>${Number(p.price).toFixed(2)} zł</td>
+      </tr>`;
   });
 
-  txt += `------------------------------
-SUMA:    ${total} zł
+  const receiptHTML = `
+    <table class="receipt-table">
+      <tr class="header">
+        <td colspan="2">PARAGON DŁUGU</td>
+      </tr>
+      <tr>
+        <td>NR:</td>
+        <td>${debt.id.slice(0,8).toUpperCase()}</td>
+      </tr>
+      <tr>
+        <td>DATA:</td>
+        <td>${created.toLocaleDateString('pl-PL')}</td>
+      </tr>
+      <tr>
+        <td>GODZ:</td>
+        <td>${created.toLocaleTimeString('pl-PL')}</td>
+      </tr>
+      <tr>
+        <td>TYTUŁ:</td>
+        <td>${debt.title}</td>
+      </tr>
+      <tr>
+        <td>DŁUŻNIK:</td>
+        <td>${debtorNames.join(', ')}</td>
+      </tr>
+      <tr class="separator">
+        <td colspan="2">PRODUKTY</td>
+      </tr>
+      ${productsTable}
+      <tr class="separator">
+        <td colspan="2">───────────</td>
+      </tr>
+      <tr>
+        <td>SUMA:</td>
+        <td>${total} zł</td>
+      </tr>
+      <tr>
+        <td>TERMIN:</td>
+        <td>${due.toLocaleDateString('pl-PL')}</td>
+      </tr>
+      <tr class="separator">
+        <td colspan="2">───────────</td>
+      </tr>
+      <tr>
+        <td>STATUS:</td>
+        <td>${debt.isPaid ? '✓ OPŁACONY' : '⚠ NIEOPŁACONY'}</td>
+      </tr>
+      <tr class="footer">
+        <td colspan="2">
+          Dług można opłacić w ciągu<br>
+          14 dni metodami: przelew, gotówka
+        </td>
+      </tr>
+    </table>
+  `;
 
-Termin: ${due.toLocaleDateString('pl-PL')}
-------------------------------
-Status: ${debt.isPaid ? '✓ OPŁACONY' : '⚠ NIEOPŁACONY'}
-
-Dług można opłacić w ciągu
-14 dni od wystawienia tego
-paragonu metodami:
-• PRZELEW
-• GOTÓWKA
-==============================`;
-
-  receiptPre.textContent = txt;
+  receiptContent.innerHTML = receiptHTML;
   receiptModal.showModal();
 }
 
@@ -261,7 +277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   activeDiv = $('#activeDebtsList');
   archDiv = $('#archivedDebtsList');
   receiptModal = $('#receiptModal');
-  receiptPre = $('#receiptContent');
+  receiptContent = $('#receiptContent');
   printBtn = $('#printReceiptBtn');
   closeBtn = $('#closeModalBtn');
   paymentModal = $('#paymentModal');

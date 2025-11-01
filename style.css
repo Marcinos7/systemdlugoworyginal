@@ -142,8 +142,7 @@ dialog {
   max-width: 90vw;
 }
 
-#receiptModal,
-#paymentConfirmModal {
+#receiptModal {
   width: 100mm;
   max-width: 90vw;
 }
@@ -196,25 +195,52 @@ dialog {
   background: var(--red-dark);
 }
 
-#receiptContent,
-#paymentConfirmContent {
+/* NOWE STYLE DLA TABELOWEGO PARAGONU */
+.receipt-table {
+  width: 100%;
+  border-collapse: collapse;
   font-family: 'Courier New', monospace;
-  white-space: pre-wrap;
-  font-size: 1.3em;
+  font-size: 14px;
   font-weight: bold;
-  line-height: 1.4;
-  overflow-wrap: break-word;
+  line-height: 1.2;
+}
+
+.receipt-table td {
+  padding: 3px 0;
+  border: none;
   word-wrap: break-word;
 }
 
-/* KLUCZOWA SEKCJA – POPRAWIONY DRUK */
+.receipt-table .header {
+  text-align: center;
+  border-bottom: 2px solid #000;
+  padding-bottom: 5px;
+  margin-bottom: 10px;
+}
+
+.receipt-table .separator {
+  text-align: center;
+  border-top: 1px solid #000;
+  padding: 2px 0;
+}
+
+.receipt-table .footer {
+  text-align: center;
+  border-top: 2px solid #000;
+  padding-top: 5px;
+}
+
+/* SPECJALNE FORMATOWANIE DLA DRUKARKI 80MM */
 @media print {
-  /* USUWAMY WSZYSTKIE ELEMENTY Z WIDOKU */
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
   body * {
     visibility: hidden !important;
   }
 
-  /* TYLKO AKTYWNY MODAL JEST WIDOCZNY */
   dialog[open] {
     visibility: visible !important;
     position: absolute !important;
@@ -228,30 +254,26 @@ dialog {
     border: none !important;
     box-shadow: none !important;
     overflow: hidden !important;
-    page-break-after: always !important; /* KLUCZOWE: TYLKO JEDNA STRONA */
+    page-break-after: always !important;
   }
 
-  /* TYLKO ZAWARTOŚĆ MODALA JEST WIDOCZNA */
   dialog[open] * {
     visibility: visible !important;
   }
 
-  /* POGRUBIENIE DLA DRUKARKI TERMICZNEJ */
-  #receiptContent,
-  #paymentConfirmContent {
-    font-family: 'Courier New', monospace !important;
-    font-size: 11px !important;
-    line-height: 1.2 !important;
-    font-weight: bold !important;
-    white-space: pre-wrap !important;
-    word-wrap: break-word !important;
-    padding: 2mm !important;
-    margin: 0 !important;
+  /* STYLE DLA PARAGONU W DRUKU */
+  .receipt-table {
     width: 80mm !important;
     max-width: 80mm !important;
+    font-size: 10px !important;
+    font-weight: bold !important;
   }
 
-  /* UKRYWAMY PRZYCISKI W DRUKU */
+  .receipt-table td {
+    padding: 1px 0 !important;
+    font-size: 10px !important;
+  }
+
   .modal-actions,
   button {
     display: none !important;
@@ -267,8 +289,7 @@ dialog {
     width: 95vw;
   }
 
-  #receiptModal,
-  #paymentConfirmModal {
+  #receiptModal {
     width: 95vw;
   }
 }
