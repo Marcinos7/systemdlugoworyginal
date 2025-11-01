@@ -14,13 +14,10 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 import { db } from './firebase-init.js';
 
-/* ----------  EMAILJS KONFIGURACJA (UZUPEŁNIJ SWOIMI DANYMI) ---------- */
+/* ----------  EMAILJS KONFIGURACJA ---------- */
 const EMAILJS_CONFIG = {
-    // Service ID z EmailJS (np. service_123abc) - znajdziesz w Email Services > Twoja usługa > Service ID
-    SERVICE_ID: 'service_i86iyj3', // <--- Pamiętaj, aby to ZAMIENIĆ na swoje Service ID!
-    // Template ID dla nowego długu
+    SERVICE_ID: 'service_i86iyj3', 
     TEMPLATE_NEW_DEBT: 'template_2orr235',     
-    // Template ID dla opłaconego długu
     TEMPLATE_PAID_DEBT: 'template_48jy2ur'        
 };
 
@@ -61,13 +58,12 @@ function addProductField(name = '', price = '') {
 }
 
 /* --------------------------------------------------------------
-   FUNKCJA WYSYŁANIA EMAILA (EmailJS) - ZAKTUALIZOWANA
+   FUNKCJA WYSYŁANIA EMAILA (EmailJS)
    -------------------------------------------------------------- */
 async function sendNotificationEmail(templateId, debtData, method = null, debtId = null) {
     const total = debtData.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
-    const orderId = debtId ? debtId.slice(0, 8).toUpperCase() : 'N/A'; // Użyj ID długu
+    const orderId = debtId ? debtId.slice(0, 8).toUpperCase() : 'N/A';
 
-    // Iteruj przez wszystkich dłużników
     for (const pid of debtData.debtorIds) {
         const pDoc = await getDoc(doc(db, 'people', pid));
         if (pDoc.exists() && pDoc.data().email) {
@@ -75,34 +71,27 @@ async function sendNotificationEmail(templateId, debtData, method = null, debtId
             const debtorName = pDoc.data().name;
             
             let emailParams = {
-                // WSPÓLNE DLA OBU SZABLONÓW (EmailJS sam przekazuje to_email/to_name do From/To)
-                to_email: debtorEmail, // Używane przez EmailJS w tle
-                to_name: debtorName,   // Używane przez EmailJS w tle
-                order_id: orderId      // {{order_id}} w szablonach
+                to_email: debtorEmail,
+                to_name: debtorName,
+                order_id: orderId
             };
 
             if (templateId === EMAILJS_CONFIG.TEMPLATE_NEW_DEBT) {
-                // PARAMETRY DLA 'debt_created_template'
                 emailParams = {
                     ...emailParams,
-                    name: debtData.title,           // {{name}} w szablonie
-                    units: debtData.products.length, // {{units}} w szablonie
-                    price: total,                   // {{price}} w szablonie
-                    'cost.tax': '0.00',             // {{cost.tax}} w szablonie
-                    'cost.total': total             // {{cost.total}} w szablonie
+                    name: debtData.title,
+                    units: debtData.products.length,
+                    price: total,
+                    'cost.tax': '0.00',
+                    'cost.total': total
                 };
             }
-            // else if (templateId === EMAILJS_CONFIG.TEMPLATE_PAID_DEBT) {
-            //     // 'debt_paid_template' potrzebuje tylko order_id (już dodane do emailParams)
-            // }
 
             try {
                 await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, emailParams);
                 console.log(`✅ Email '${templateId}' wysłany do ${debtorName} (${debtorEmail})`);
             } catch (error) {
                 console.error(`❌ Błąd wysyłki emaila '${templateId}' do ${debtorName} (${debtorEmail}):`, error);
-                // Bardziej szczegółowy alert w przypadku błędu
-                alert(`Nie udało się wysłać emaila do ${debtorName} (${debtorEmail}). Upewnij się, że:\n1. Service ID i Template ID są poprawne w EmailJS.\n2. Wszelkie zmienne w szablonach EmailJS (np. {{order_id}}) są poprawnie zdefiniowane.\n3. Twoja usługa email w EmailJS jest aktywna. Szczegóły w konsoli przeglądarki (F12).`);
             }
         } else {
             console.warn(`⚠️ Brak emaila dla dłużnika ${pDoc.exists() ? pDoc.data().name : pid}. Nie wysłano emaila.`);
@@ -205,22 +194,19 @@ async function processPayment(method) {
 
   const now = new Date();
 
-  // 1. Aktualizacja w Firestore
   await updateDoc(doc(db, 'debts', pendingPaymentDebtId), {
     isPaid: true,
     paymentMethod: method === 'cash' ? 'Gotówka' : 'Przelew',
     paymentDate: serverTimestamp()
   });
 
-  // 2. Wysyłka emaila o opłaceniu
   await sendNotificationEmail(
     EMAILJS_CONFIG.TEMPLATE_PAID_DEBT,
     pendingPaymentDebtData,
-    method === 'cash' ? 'Gotówka' : 'Przelew', // Ten parametr nie jest używany w szablonie, ale zachowany dla spójności
+    method === 'cash' ? 'Gotówka' : 'Przelew',
     pendingPaymentDebtId
   );
 
-  // 3. Generowanie potwierdzenia
   generatePaymentConfirmation(
     pendingPaymentDebtId,
     pendingPaymentDebtData,
@@ -232,32 +218,32 @@ async function processPayment(method) {
   loadDebts();
 }
 
+/* SKRÓCONE FORMATOWANIE DLA 80MM */
 function generatePaymentConfirmation(id, debt, method, date) {
   const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
   const methodTxt = method === 'cash' ? 'GOTÓWKA' : 'PRZELEW';
 
+  // SKRÓCONE LINIE - 30 znaków zamiast 40
   const txt = `
-========================================
-        POTWIERDZENIE OPŁATY
-========================================
+==============================
+    POTWIERDZENIE OPŁATY
+==============================
+NR DŁUGU: ${id.slice(0, 8).toUpperCase()}
 
-NUMER DŁUGU: ${id.slice(0, 8).toUpperCase()}
+DATA: ${date.toLocaleDateString('pl-PL')}
+GODZ: ${date.toLocaleTimeString('pl-PL')}
+------------------------------
+TYTUŁ: ${debt.title}
+DŁUŻNIK: 
+${debt.debtorNames.join('\n')}
 
-DATA OPŁACENIA: ${date.toLocaleDateString('pl-PL')}
-GODZINA:        ${date.toLocaleTimeString('pl-PL')}
-
-----------------------------------------
-TYTUŁ DŁUGU:    ${debt.title}
-DŁUŻNIK(CY):   ${debt.debtorNames.join(', ')}
-
-METODA PŁATNOŚCI: ${methodTxt}
-OPŁACONA KWOTA:  ${total} ZŁ
-
-----------------------------------------
+METODA: ${methodTxt}
+KWOTA: ${total} ZŁ
+------------------------------
 STATUS: ✓ OPŁACONY
-========================================
-   Dziękujemy za dokonanie płatności
-========================================`;
+==============================
+  Dziękujemy za płatność!
+==============================`;
 
   paymentConfirmContent.textContent = txt;
   paymentConfirmModal.showModal();
@@ -265,59 +251,55 @@ STATUS: ✓ OPŁACONY
   setTimeout(() => window.print(), 500);
 }
 
-/* --------------------------------------------------------------
-   MODAL – PARAGON DŁUGU
-   -------------------------------------------------------------- */
+/* SKRÓCONE FORMATOWANIE DLA 80MM */
 function openReceipt(debt, debtorNames = []) {
   const total   = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
   const created = debt.createdAt?.toDate?.() ? debt.createdAt.toDate() : new Date();
   const due     = new Date(debt.dueDate);
 
+  // SKRÓCONE LINIE - 30 znaków zamiast 40
   let txt = `
-========================================
-           PARAGON DŁUGU
-        NR: ${debt.id.slice(0,8).toUpperCase()}
-========================================
-
-Data wystawienia: ${created.toLocaleDateString('pl-PL')} ${created.toLocaleTimeString('pl-PL')}
+==============================
+      PARAGON DŁUGU
+   NR: ${debt.id.slice(0,8).toUpperCase()}
+==============================
+Data: ${created.toLocaleDateString('pl-PL')}
+Godz: ${created.toLocaleTimeString('pl-PL')}
 
 Tytuł: ${debt.title}
 
 Dłużnik(cy):
-${debtorNames.join(', ')}
-
-----------------------------------------
-               PRODUKTY
-----------------------------------------
+${debtorNames.join('\n')}
+------------------------------
+PRODUKTY:
+------------------------------
 `;
 
+  // Uproszczone formatowanie produktów - bez padding
   debt.products.forEach(p => {
-    const nameLines = p.name.match(/.{1,20}/g) || [p.name];
-    nameLines.forEach((line, i) => {
-      if (i === 0) {
-        txt += `${line.padEnd(20)} ${Number(p.price).toFixed(2).padStart(8)} zł\n`;
-      } else {
-        txt += `  ${line}\n`;
-      }
-    });
-    txt += '\n';
+    // Jeśli nazwa jest długa, zawijamy ją
+    if (p.name.length > 18) {
+      txt += `${p.name.substring(0, 18)}...\n`;
+      txt += `         ${Number(p.price).toFixed(2)} zł\n`;
+    } else {
+      txt += `${p.name}\n`;
+      txt += `         ${Number(p.price).toFixed(2)} zł\n`;
+    }
   });
 
-  txt += `----------------------------------------
-SUMA DO ZAPŁATY: ${total.padStart(10)} zł
+  txt += `------------------------------
+SUMA:    ${total} zł
 
-Termin spłaty: ${due.toLocaleDateString('pl-PL')}
-
-----------------------------------------
+Termin: ${due.toLocaleDateString('pl-PL')}
+------------------------------
 Status: ${debt.isPaid ? '✓ OPŁACONY' : '⚠ NIEOPŁACONY'}
 
-Dług można opłacić w ciągu 14 dni
-od wystawienia niniejszego paragonu
-długu podanymi metodami płatności:
+Dług można opłacić w ciągu
+14 dni od wystawienia tego
+paragonu metodami:
 • PRZELEW
 • GOTÓWKA
-----------------------------------------
-`;
+==============================`;
 
   receiptPre.textContent = txt;
   receiptModal.showModal();
@@ -373,7 +355,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     show(createBtn);
   });
 
-  // Zapis nowego długu + wysyłka emaila
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -398,18 +379,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       isPaid: false
     };
 
-    // Zapis do Firestore
     const docRef = await addDoc(collection(db, 'debts'), {
       ...newDebt,
       createdAt: serverTimestamp()
     });
 
-    // Wysyłka emaila o nowym długu (z ID dokumentu)
     await sendNotificationEmail(
       EMAILJS_CONFIG.TEMPLATE_NEW_DEBT,
       newDebt,
-      null, // brak metody płatności dla nowego długu
-      docRef.id // Przekazujemy ID długu
+      null,
+      docRef.id
     );
 
     hide(form);
