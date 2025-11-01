@@ -207,34 +207,36 @@ dialog {
   word-wrap: break-word;
 }
 
+/* KLUCZOWA SEKCJA – POPRAWIONY DRUK */
 @media print {
-  @page {
-    size: 80mm auto;
-    margin: 0;
-  }
-
+  /* USUWAMY WSZYSTKIE ELEMENTY Z WIDOKU */
   body * {
-    visibility: hidden;
+    visibility: hidden !important;
   }
 
-  dialog[open],
-  dialog[open] * {
+  /* TYLKO AKTYWNY MODAL JEST WIDOCZNY */
+  dialog[open] {
     visibility: visible !important;
-  }
-
-  dialog {
-    position: fixed !important;
+    position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 80mm !important;
     max-width: 80mm !important;
+    height: auto !important;
     padding: 0 !important;
     margin: 0 !important;
     border: none !important;
     box-shadow: none !important;
-    page-break-inside: avoid;
+    overflow: hidden !important;
+    page-break-after: always !important; /* KLUCZOWE: TYLKO JEDNA STRONA */
   }
 
+  /* TYLKO ZAWARTOŚĆ MODALA JEST WIDOCZNA */
+  dialog[open] * {
+    visibility: visible !important;
+  }
+
+  /* POGRUBIENIE DLA DRUKARKI TERMICZNEJ */
   #receiptContent,
   #paymentConfirmContent {
     font-family: 'Courier New', monospace !important;
@@ -243,13 +245,13 @@ dialog {
     font-weight: bold !important;
     white-space: pre-wrap !important;
     word-wrap: break-word !important;
-    overflow: hidden !important;
     padding: 2mm !important;
     margin: 0 !important;
     width: 80mm !important;
     max-width: 80mm !important;
   }
 
+  /* UKRYWAMY PRZYCISKI W DRUKU */
   .modal-actions,
   button {
     display: none !important;

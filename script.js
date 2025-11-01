@@ -1,27 +1,17 @@
 import {
-  addDoc,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc
+  addDoc, collection, doc, getDoc, getDocs,
+  orderBy, query, serverTimestamp, updateDoc
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 import { db } from './firebase-init.js';
 
-/* ----------  EMAILJS KONFIGURACJA ---------- */
 const EMAILJS_CONFIG = {
-    SERVICE_ID: 'service_i86iyj3', // TWÓJ SERVICE ID
+    SERVICE_ID: 'service_i86iyj3',
     TEMPLATE_NEW_DEBT: 'template_2orr235',
     TEMPLATE_PAID_DEBT: 'template_48jy2ur'
 };
 
-/* ----------  Pomocnicza funkcja selektora ---------- */
 const $ = (sel) => document.querySelector(sel);
 
-/* ----------  Zmienne DOM ---------- */
 let createBtn, form, cancelBtn, saveBtn, addProdBtn, productsC,
     titleInp, debtorSel, dueDateInp,
     peopleUL, activeDiv, archDiv,
@@ -29,11 +19,9 @@ let createBtn, form, cancelBtn, saveBtn, addProdBtn, productsC,
     paymentModal, paymentCash, paymentTransfer, cancelPaymentBtn,
     paymentConfirmModal, paymentConfirmContent, printConfirmBtn, closeConfirmBtn;
 
-/* ----------  Stan płatności ---------- */
 let pendingPaymentDebtId = null;
 let pendingPaymentDebtData = null;
 
-/* ----------  Funkcje UI ---------- */
 const hide = (el) => el && el.classList.add('hidden');
 const show = (el) => el && el.classList.remove('hidden');
 
@@ -54,7 +42,6 @@ function addProductField(name = '', price = '') {
   productsC.appendChild(wrapper);
 }
 
-/* ----------  WYSYŁKA EMAILI ---------- */
 async function sendNotificationEmail(templateId, debtData, method = null, debtId = null) {
     const total = debtData.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
     const orderId = debtId ? debtId.slice(0, 8).toUpperCase() : 'N/A';
@@ -85,7 +72,6 @@ async function sendNotificationEmail(templateId, debtData, method = null, debtId
     }
 }
 
-/* ----------  ŁADOWANIE DANYCH ---------- */
 async function loadPeople() {
   peopleUL.innerHTML = '';
   debtorSel.innerHTML = '';
@@ -157,7 +143,6 @@ async function renderDebt(debt) {
   (debt.isPaid ? archDiv : activeDiv).appendChild(box);
 }
 
-/* ----------  PŁATNOŚCI ---------- */
 function initiatePayment(debtId, debtData, debtorNames) {
   pendingPaymentDebtId = debtId;
   pendingPaymentDebtData = { ...debtData, debtorNames };
@@ -262,7 +247,6 @@ paragonu metodami:
   receiptModal.showModal();
 }
 
-/* ----------  INICJALIZACJA ---------- */
 document.addEventListener('DOMContentLoaded', async () => {
   createBtn = $('#createDebtBtn');
   form = $('#debtForm');
