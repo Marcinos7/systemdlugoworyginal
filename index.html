@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>System Zarządzania Długami</title>
+  <title>DebtManager Pro</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <script>
@@ -15,47 +15,77 @@
 </head>
 <body>
   <div class="container">
-    <h1>System Zarządzania Długami</h1>
+    <header>
+      <h1>System Zarządzania Długami</h1>
+      <div class="dashboard">
+        <div class="stat-card">
+          <small>Do odzyskania</small>
+          <h2 id="totalOwed">0.00 zł</h2>
+        </div>
+        <div class="stat-card">
+          <small>Aktywne długi</small>
+          <h2 id="activeCount">0</h2>
+        </div>
+      </div>
+    </header>
+
     <section class="section">
-      <h2>Osoby</h2>
-      <ul id="peopleList"></ul>
+      <div class="section-header">
+        <h2>Osoby</h2>
+        <button id="togglePersonForm" class="btn-small">+ Dodaj osobę</button>
+      </div>
+      <form id="personForm" class="hidden mini-form">
+        <input id="personName" type="text" placeholder="Imię i nazwisko" required>
+        <input id="personEmail" type="email" placeholder="Email">
+        <button type="submit">Dodaj</button>
+      </form>
+      <ul id="peopleList" class="chips-list"></ul>
     </section>
+
     <section class="section">
-      <h2>Utwórz nowy dług</h2>
-      <button id="createDebtBtn">Utwórz dług</button>
-      <form id="debtForm" class="hidden">
+      <div class="section-header">
+        <h2>Nowy dług</h2>
+        <button id="createDebtBtn">Utwórz dług</button>
+      </div>
+      <form id="debtForm" class="hidden card-form">
         <label for="debtTitle">Tytuł długu</label>
         <input id="debtTitle" type="text" placeholder="Np. Zakupy spożywcze" required>
+        
         <label for="debtorSelect">Wybierz dłużnika(-ów)</label>
         <select id="debtorSelect" multiple required></select>
         <p class="small-text">Przytrzymaj Ctrl/⌘, aby zaznaczyć wielu.</p>
+        
         <h3>Produkty</h3>
         <div id="productsContainer"></div>
-        <button type="button" id="addProductBtn">Dodaj produkt</button>
+        <button type="button" id="addProductBtn" class="btn-secondary">+ Dodaj produkt</button>
+        
         <label for="dueDate">Termin spłaty</label>
         <input id="dueDate" type="date" required>
+        
         <div class="form-actions">
-          <button type="submit" id="saveDebtBtn">Zapisz dług</button>
-          <button type="button" id="cancelDebtBtn">Anuluj</button>
+          <button type="submit" id="saveDebtBtn">Zapisz i wyślij powiadomienie</button>
+          <button type="button" id="cancelDebtBtn" class="btn-outline">Anuluj</button>
         </div>
       </form>
     </section>
+
     <section class="section">
       <h2>Aktywne długi</h2>
-      <div id="activeDebtsList"></div>
+      <div id="activeDebtsList" class="debts-grid"></div>
     </section>
+
     <section class="section">
       <h2>Archiwum długów</h2>
-      <div id="archivedDebtsList"></div>
+      <div id="archivedDebtsList" class="debts-grid"></div>
     </section>
   </div>
 
-  <!-- NOWY PARAGON NA BAZIE TABELI -->
+  <!-- MODALE -->
   <dialog id="receiptModal">
     <div id="receiptContent"></div>
     <div class="modal-actions">
       <button id="printReceiptBtn">Drukuj</button>
-      <button id="closeModalBtn">Zamknij</button>
+      <button id="closeModalBtn" class="btn-outline">Zamknij</button>
     </div>
   </dialog>
 
@@ -72,7 +102,7 @@
     <pre id="paymentConfirmContent"></pre>
     <div class="modal-actions">
       <button id="printConfirmBtn">Drukuj potwierdzenie</button>
-      <button id="closeConfirmBtn">Zamknij</button>
+      <button id="closeConfirmBtn" class="btn-outline">Zamknij</button>
     </div>
   </dialog>
 

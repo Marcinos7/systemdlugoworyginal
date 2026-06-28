@@ -12,334 +12,217 @@ const EMAILJS_CONFIG = {
 
 const $ = (sel) => document.querySelector(sel);
 
-let createBtn, form, cancelBtn, saveBtn, addProdBtn, productsC,
-    titleInp, debtorSel, dueDateInp,
-    peopleUL, activeDiv, archDiv,
-    receiptModal, receiptContent, printBtn, closeBtn,
-    paymentModal, paymentCash, paymentTransfer, cancelPaymentBtn,
-    paymentConfirmModal, paymentConfirmContent, printConfirmBtn, closeConfirmBtn;
+// Selektory
+const personForm = $('#personForm'), 
+      togglePersonBtn = $('#togglePersonForm'),
+      totalOwedEl = $('#totalOwed'),
+      activeCountEl = $('#activeCount'),
+      debtForm = $('#debtForm'),
+      createDebtBtn = $('#createDebtBtn'),
+      productsC = $('#productsContainer'),
+      activeDiv = $('#activeDebtsList'),
+      archDiv = $('#archivedDebtsList'),
+      peopleUL = $('#peopleList'),
+      debtorSel = $('#debtorSelect'),
+      receiptModal = $('#receiptModal'),
+      paymentModal = $('#paymentModal'),
+      paymentConfirmModal = $('#paymentConfirmModal');
 
 let pendingPaymentDebtId = null;
 let pendingPaymentDebtData = null;
 
-const hide = (el) => el && el.classList.add('hidden');
-const show = (el) => el && el.classList.remove('hidden');
-
-function resetForm() {
-  form.reset();
-  debtorSel.querySelectorAll('option').forEach(o => o.selected = false);
-  productsC.innerHTML = '';
-  addProductField();
-}
+// --- FUNKCJE POMOCNICZE ---
+const show = (el) => el.classList.remove('hidden');
+const hide = (el) => el.classList.add('hidden');
 
 function addProductField(name = '', price = '') {
   const wrapper = document.createElement('div');
   wrapper.className = 'product-item';
   wrapper.innerHTML = `
-    <input type="text"  class="p-name"  placeholder="Nazwa"  value="${name}" required>
-    <input type="number" class="p-price" placeholder="Cena" value="${price}" step="0.01" min="0" required>
-    <button type="button" class="remove">✕</button>`;
+    <input type="text" class="p-name" placeholder="Produkt" value="${name}" required>
+    <input type="number" class="p-price" placeholder="Cena" value="${price}" step="0.01" required>
+    <button type="button" class="btn-secondary remove">✕</button>`;
   productsC.appendChild(wrapper);
 }
 
+// --- STATYSTYKI ---
+function updateDashboard(debts) {
+    let total = 0;
+    let activeCount = 0;
+    debts.forEach(d => {
+        if (!d.isPaid) {
+            total += d.products.reduce((s, p) => s + Number(p.price), 0);
+            activeCount++;
+        }
+    });
+    totalOwedEl.textContent = `${total.toFixed(2)} zł`;
+    activeCountEl.textContent = activeCount;
+}
+
+// --- FIREBASE: OSOBY ---
+async function loadPeople() {
+    peopleUL.innerHTML = '';
+    debtorSel.innerHTML = '';
+    const snap = await getDocs(query(collection(db, 'people'), orderBy('name')));
+    snap.forEach(docu => {
+        const data = docu.data();
+        peopleUL.insertAdjacentHTML('beforeend', `<li>${data.name}</li>`);
+        debtorSel.insertAdjacentHTML('beforeend', `<option value="${docu.id}">${data.name}</option>`);
+    });
+}
+
+togglePersonBtn.addEventListener('click', () => personForm.classList.toggle('hidden'));
+
+personForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = $('#personName').value;
+    const email = $('#personEmail').value;
+    await addDoc(collection(db, 'people'), { name, email });
+    personForm.reset();
+    hide(personForm);
+    loadPeople();
+});
+
+// --- FIREBASE: DŁUGI ---
+async function loadDebts() {
+    activeDiv.innerHTML = 'Ładowanie...';
+    archDiv.innerHTML = '';
+    const snap = await getDocs(query(collection(db, 'debts'), orderBy('createdAt', 'desc')));
+    const allDebts = [];
+    activeDiv.innerHTML = '';
+
+    for (const docu of snap.docs) {
+        const debt = { id: docu.id, ...docu.data() };
+        allDebts.push(debt);
+        await renderDebt(debt);
+    }
+    updateDashboard(allDebts);
+}
+
+async function renderDebt(debt) {
+    const names = [];
+    for (const pid of debt.debtorIds) {
+        const pDoc = await getDoc(doc(db, 'people', pid));
+        names.push(pDoc.exists() ? pDoc.data().name : 'Nieznany');
+    }
+
+    const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
+    const box = document.createElement('div');
+    box.className = `debt-item ${debt.isPaid ? 'archived' : ''}`;
+    box.innerHTML = `
+        <div>
+            <strong>${debt.title}</strong><br>
+            <small>${names.join(', ')}</small><br>
+            <h3>${total} zł</h3>
+            <small>Termin: ${new Date(debt.dueDate).toLocaleDateString('pl-PL')}</small>
+        </div>
+        <div style="margin-top:15px; display:flex; gap:5px;">
+            <button class="btn-small btn-outline view-receipt">Paragon</button>
+            ${!debt.isPaid ? `<button class="btn-small pay-debt">Opłać</button>` : ''}
+        </div>
+    `;
+
+    box.querySelector('.view-receipt').onclick = () => openReceipt(debt, names);
+    if (!debt.isPaid) {
+        box.querySelector('.pay-debt').onclick = () => {
+            pendingPaymentDebtId = debt.id;
+            pendingPaymentDebtData = { ...debt, debtorNames: names };
+            paymentModal.showModal();
+        };
+    }
+
+    (debt.isPaid ? archDiv : activeDiv).appendChild(box);
+}
+
+// --- EMAILJS ---
 async function sendNotificationEmail(templateId, debtData, method = null, debtId = null) {
     const total = debtData.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
-    const orderId = debtId ? debtId.slice(0, 8).toUpperCase() : 'N/A';
-
     for (const pid of debtData.debtorIds) {
         const pDoc = await getDoc(doc(db, 'people', pid));
         if (pDoc.exists() && pDoc.data().email) {
-            const emailParams = {
+            await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, {
                 to_email: pDoc.data().email,
                 to_name: pDoc.data().name,
-                order_id: orderId,
+                order_id: debtId?.slice(0,8).toUpperCase() || 'N/A',
                 name: debtData.title,
-                units: debtData.products.length,
                 price: total,
-                'cost.tax': '0.00',
-                'cost.total': total,
-                payment_method: method || 'N/A',
-                payment_date: method ? new Date().toLocaleDateString('pl-PL') : 'N/A'
-            };
-
-            try {
-                await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, templateId, emailParams);
-                console.log(`✅ Email wysłany do ${pDoc.data().name}`);
-            } catch (error) {
-                console.error(`❌ Błąd wysyłki do ${pDoc.data().name}:`, error);
-            }
+                payment_method: method || 'N/A'
+            });
         }
     }
 }
 
-async function loadPeople() {
-  peopleUL.innerHTML = '';
-  debtorSel.innerHTML = '';
-
-  const snap = await getDocs(query(collection(db, 'people'), orderBy('name')));
-  snap.forEach(docu => {
-    const data = docu.data();
-    peopleUL.insertAdjacentHTML('beforeend', `<li>${data.name} <small>(${data.email || 'Brak emaila'})</small></li>`);
-    debtorSel.insertAdjacentHTML('beforeend', `<option value="${docu.id}">${data.name}</option>`);
-  });
-}
-
-async function loadDebts() {
-  activeDiv.innerHTML = '';
-  archDiv.innerHTML = '';
-
-  const snap = await getDocs(query(collection(db, 'debts'), orderBy('createdAt', 'desc')));
-  for (const docu of snap.docs) {
-    const debt = { id: docu.id, ...docu.data() };
-    await renderDebt(debt);
-  }
-}
-
-async function renderDebt(debt) {
-  const debtorNames = [];
-  for (const pid of debt.debtorIds) {
-    const pDoc = await getDoc(doc(db, 'people', pid));
-    debtorNames.push(pDoc.exists() ? pDoc.data().name : 'Nieznany');
-  }
-
-  const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
-  const due = new Date(debt.dueDate).toLocaleDateString('pl-PL');
-
-  const box = document.createElement('div');
-  box.className = 'debt-item' + (debt.isPaid ? ' archived' : '');
-
-  let paymentInfo = '';
-  if (debt.isPaid && debt.paymentMethod) {
-    const payDate = debt.paymentDate?.toDate?.()
-      ? debt.paymentDate.toDate().toLocaleDateString('pl-PL')
-      : '—';
-    paymentInfo = `<br><small>Opłacono: ${payDate} (${debt.paymentMethod})</small>`;
-  }
-
-  box.innerHTML = `
-    <div>
-      <strong>${debt.title}</strong><br>
-      Dłużnik(cy): ${debtorNames.join(', ')}<br>
-      Suma: ${total} zł<br>
-      Termin spłaty: ${due}
-      ${paymentInfo}
-    </div>
-    <div class="btns"></div>
-  `;
-
-  const btns = box.querySelector('.btns');
-  const viewBtn = document.createElement('button');
-  viewBtn.textContent = 'Paragon';
-  viewBtn.addEventListener('click', () => openReceipt(debt, debtorNames));
-  btns.appendChild(viewBtn);
-
-  if (!debt.isPaid) {
-    const payBtn = document.createElement('button');
-    payBtn.textContent = 'Opłacony';
-    payBtn.addEventListener('click', () => initiatePayment(debt.id, debt, debtorNames));
-    btns.appendChild(payBtn);
-  }
-
-  (debt.isPaid ? archDiv : activeDiv).appendChild(box);
-}
-
-function initiatePayment(debtId, debtData, debtorNames) {
-  pendingPaymentDebtId = debtId;
-  pendingPaymentDebtData = { ...debtData, debtorNames };
-  paymentModal.showModal();
-}
-
+// --- OBSŁUGA PŁATNOŚCI ---
 async function processPayment(method) {
-  if (!pendingPaymentDebtId) return;
-
-  const now = new Date();
-  await updateDoc(doc(db, 'debts', pendingPaymentDebtId), {
-    isPaid: true,
-    paymentMethod: method === 'cash' ? 'Gotówka' : 'Przelew',
-    paymentDate: serverTimestamp()
-  });
-
-  await sendNotificationEmail(
-    EMAILJS_CONFIG.TEMPLATE_PAID_DEBT,
-    pendingPaymentDebtData,
-    method === 'cash' ? 'Gotówka' : 'Przelew',
-    pendingPaymentDebtId
-  );
-
-  generatePaymentConfirmation(pendingPaymentDebtId, pendingPaymentDebtData, method, now);
-  paymentModal.close();
-  loadDebts();
-}
-
-function generatePaymentConfirmation(id, debt, method, date) {
-  const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
-  const txt = `POTWIERDZENIE OPŁATY
-NR DŁUGU: ${id.slice(0, 8).toUpperCase()}
-DATA: ${date.toLocaleDateString('pl-PL')}
-GODZ: ${date.toLocaleTimeString('pl-PL')}
-TYTUŁ: ${debt.title}
-DŁUŻNIK: ${debt.debtorNames.join(', ')}
-METODA: ${method === 'cash' ? 'GOTÓWKA' : 'PRZELEW'}
-KWOTA: ${total} ZŁ
-STATUS: ✓ OPŁACONY`;
-  
-  paymentConfirmContent.textContent = txt;
-  paymentConfirmModal.showModal();
-}
-
-// NOWA FUNKCJA - TABELOWY PARAGON
-function openReceipt(debt, debtorNames = []) {
-  const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
-  const created = debt.createdAt?.toDate?.() ? debt.createdAt.toDate() : new Date();
-  const due = new Date(debt.dueDate);
-
-  // Generuj HTML tabeli
-  let productsTable = '';
-  debt.products.forEach(p => {
-    productsTable += `
-      <tr>
-        <td>${p.name}</td>
-        <td>${Number(p.price).toFixed(2)} zł</td>
-      </tr>`;
-  });
-
-  const receiptHTML = `
-    <table class="receipt-table">
-      <tr class="header">
-        <td colspan="2">PARAGON DŁUGU</td>
-      </tr>
-      <tr>
-        <td>NR:</td>
-        <td>${debt.id.slice(0,8).toUpperCase()}</td>
-      </tr>
-      <tr>
-        <td>DATA:</td>
-        <td>${created.toLocaleDateString('pl-PL')}</td>
-      </tr>
-      <tr>
-        <td>GODZ:</td>
-        <td>${created.toLocaleTimeString('pl-PL')}</td>
-      </tr>
-      <tr>
-        <td>TYTUŁ:</td>
-        <td>${debt.title}</td>
-      </tr>
-      <tr>
-        <td>DŁUŻNIK:</td>
-        <td>${debtorNames.join(', ')}</td>
-      </tr>
-      <tr class="separator">
-        <td colspan="2">PRODUKTY</td>
-      </tr>
-      ${productsTable}
-      <tr class="separator">
-        <td colspan="2">───────────</td>
-      </tr>
-      <tr>
-        <td>SUMA:</td>
-        <td>${total} zł</td>
-      </tr>
-      <tr>
-        <td>TERMIN:</td>
-        <td>${due.toLocaleDateString('pl-PL')}</td>
-      </tr>
-      <tr class="separator">
-        <td colspan="2">───────────</td>
-      </tr>
-      <tr>
-        <td>STATUS:</td>
-        <td>${debt.isPaid ? '✓ OPŁACONY' : '⚠ NIEOPŁACONY'}</td>
-      </tr>
-      <tr class="footer">
-        <td colspan="2">
-          Dług można opłacić w ciągu<br>
-          14 dni metodami: przelew, gotówka
-        </td>
-      </tr>
-    </table>
-  `;
-
-  receiptContent.innerHTML = receiptHTML;
-  receiptModal.showModal();
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-  createBtn = $('#createDebtBtn');
-  form = $('#debtForm');
-  cancelBtn = $('#cancelDebtBtn');
-  saveBtn = $('#saveDebtBtn');
-  addProdBtn = $('#addProductBtn');
-  productsC = $('#productsContainer');
-  titleInp = $('#debtTitle');
-  debtorSel = $('#debtorSelect');
-  dueDateInp = $('#dueDate');
-  peopleUL = $('#peopleList');
-  activeDiv = $('#activeDebtsList');
-  archDiv = $('#archivedDebtsList');
-  receiptModal = $('#receiptModal');
-  receiptContent = $('#receiptContent');
-  printBtn = $('#printReceiptBtn');
-  closeBtn = $('#closeModalBtn');
-  paymentModal = $('#paymentModal');
-  paymentCash = $('#paymentCash');
-  paymentTransfer = $('#paymentTransfer');
-  cancelPaymentBtn = $('#cancelPaymentBtn');
-  paymentConfirmModal = $('#paymentConfirmModal');
-  paymentConfirmContent = $('#paymentConfirmContent');
-  printConfirmBtn = $('#printConfirmBtn');
-  closeConfirmBtn = $('#closeConfirmBtn');
-
-  productsC.addEventListener('click', (e) => {
-    if (e.target.classList.contains('remove')) {
-      e.target.parentElement.remove();
-      if (!productsC.children.length) addProductField();
-    }
-  });
-
-  addProdBtn.addEventListener('click', () => addProductField());
-  createBtn.addEventListener('click', () => { show(form); hide(createBtn); resetForm(); });
-  cancelBtn.addEventListener('click', () => { hide(form); show(createBtn); });
-  closeBtn.addEventListener('click', () => receiptModal.close());
-  closeConfirmBtn.addEventListener('click', () => paymentConfirmModal.close());
-  printBtn.addEventListener('click', () => window.print());
-  printConfirmBtn.addEventListener('click', () => window.print());
-  paymentCash.addEventListener('click', () => processPayment('cash'));
-  paymentTransfer.addEventListener('click', () => processPayment('transfer'));
-  cancelPaymentBtn.addEventListener('click', () => {
-    paymentModal.close();
-    pendingPaymentDebtId = null;
-    pendingPaymentDebtData = null;
-  });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const title = titleInp.value.trim();
-    const debtorIds = [...debtorSel.selectedOptions].map(o => o.value);
-    const dueDate = dueDateInp.value;
-    const products = [...productsC.children].map(c => ({
-      name: c.querySelector('.p-name').value.trim(),
-      price: Number(c.querySelector('.p-price').value)
-    })).filter(p => p.name && !isNaN(p.price));
-
-    if (!title || !debtorIds.length || !dueDate || !products.length) {
-      alert('Uzupełnij wszystkie pola.');
-      return;
-    }
-
-    const newDebt = { title, debtorIds, products, dueDate, isPaid: false };
-    const docRef = await addDoc(collection(db, 'debts'), {
-      ...newDebt,
-      createdAt: serverTimestamp()
+    const now = new Date();
+    await updateDoc(doc(db, 'debts', pendingPaymentDebtId), {
+        isPaid: true,
+        paymentMethod: method === 'cash' ? 'Gotówka' : 'Przelew',
+        paymentDate: serverTimestamp()
     });
 
-    await sendNotificationEmail(EMAILJS_CONFIG.TEMPLATE_NEW_DEBT, newDebt, null, docRef.id);
-    hide(form);
-    show(createBtn);
-    resetForm();
+    await sendNotificationEmail(EMAILJS_CONFIG.TEMPLATE_PAID_DEBT, pendingPaymentDebtData, method, pendingPaymentDebtId);
+    
+    paymentModal.close();
     loadDebts();
-  });
+    
+    // Potwierdzenie
+    $('#paymentConfirmContent').textContent = `POTWIERDZENIE\nKwota: ${pendingPaymentDebtData.products.reduce((s,p)=>s+p.price,0).toFixed(2)} zł\nMetoda: ${method}\nData: ${now.toLocaleString()}`;
+    paymentConfirmModal.showModal();
+}
 
-  await loadPeople();
-  await loadDebts();
-  addProductField();
+// --- PARAGON ---
+function openReceipt(debt, names) {
+    const total = debt.products.reduce((s, p) => s + Number(p.price), 0).toFixed(2);
+    let items = debt.products.map(p => `<tr><td>${p.name}</td><td style="text-align:right">${p.price.toFixed(2)} zł</td></tr>`).join('');
+    
+    $('#receiptContent').innerHTML = `
+        <table class="receipt-table">
+            <tr class="header"><td colspan="2"><h3>PARAGON DŁUGU</h3></td></tr>
+            <tr><td>ID:</td><td style="text-align:right">${debt.id.slice(0,8).toUpperCase()}</td></tr>
+            <tr><td>TYTUŁ:</td><td style="text-align:right">${debt.title}</td></tr>
+            <tr><td>DŁUŻNIK:</td><td style="text-align:right">${names.join(', ')}</td></tr>
+            <tr style="border-top:1px solid #000"><td colspan="2">PRODUKTY:</td></tr>
+            ${items}
+            <tr style="border-top:2px solid #000; font-weight:bold"><td>SUMA:</td><td style="text-align:right">${total} zł</td></tr>
+        </table>
+    `;
+    receiptModal.showModal();
+}
+
+// --- EVENTY STARTOWE ---
+document.addEventListener('DOMContentLoaded', () => {
+    createDebtBtn.onclick = () => { show(debtForm); hide(createDebtBtn); productsC.innerHTML = ''; addProductField(); };
+    $('#cancelDebtBtn').onclick = () => { hide(debtForm); show(createDebtBtn); };
+    $('#addProductBtn').onclick = () => addProductField();
+    $('#closeModalBtn').onclick = () => receiptModal.close();
+    $('#printReceiptBtn').onclick = () => window.print();
+    $('#paymentCash').onclick = () => processPayment('Gotówka');
+    $('#paymentTransfer').onclick = () => processPayment('Przelew');
+    $('#cancelPaymentBtn').onclick = () => paymentModal.close();
+    $('#closeConfirmBtn').onclick = () => paymentConfirmModal.close();
+
+    debtForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const debt = {
+            title: $('#debtTitle').value,
+            debtorIds: [...debtorSel.selectedOptions].map(o => o.value),
+            dueDate: $('#dueDate').value,
+            products: [...productsC.querySelectorAll('.product-item')].map(item => ({
+                name: item.querySelector('.p-name').value,
+                price: Number(item.querySelector('.p-price').value)
+            })),
+            isPaid: false,
+            createdAt: serverTimestamp()
+        };
+        const docRef = await addDoc(collection(db, 'debts'), debt);
+        await sendNotificationEmail(EMAILJS_CONFIG.TEMPLATE_NEW_DEBT, debt, null, docRef.id);
+        debtForm.reset();
+        hide(debtForm);
+        show(createDebtBtn);
+        loadDebts();
+    };
+
+    loadPeople();
+    loadDebts();
 });
